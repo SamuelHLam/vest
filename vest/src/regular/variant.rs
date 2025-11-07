@@ -1,6 +1,7 @@
 use super::disjoint::DisjointFrom;
 use crate::properties::*;
 use vstd::prelude::*;
+use rand::prelude::*;
 
 verus! {
 
@@ -169,16 +170,13 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Choice<Fst, Snd> where
 
     type SType = Either<Fst::SType, Snd::SType>;
 
+    type GType = Either<Fst::GType, Snd::GType>;
+
     fn length(&self, v: Self::SType) -> usize {
         match v {
             Either::Left(v) => self.0.length(v),
             Either::Right(v) => self.1.length(v),
         }
-    }
-
-    fn gen_length(&self) -> usize {
-        //need to call rng here
-        self.0.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -213,15 +211,14 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Choice<Fst, Snd> where
         }
     }
 
-    fn generate(&self, g: &mut GenSt) -> Result<(usize, Self::Type), GenerateError> {
-        if let Ok((n, v)) = self.0.generate(g) {
-            Ok((n, Either::Left(v)))
-        } else {
-            if let Ok((n, v)) = self.1.generate(g) {
-                Ok((n, Either::Right(v)))
-            } else {
-                Err(GenerateError::Generic)
-            }
+    fn generate(&self, g: &mut GenSt) -> Result<(usize, Self::GType), GenerateError> {
+        let choice = g.rng.random_bool(0.5);
+        if choice {
+            // map snd to Either::Left(v)
+            self.0.generate(g).map(|(n,v)| (n, Either::Left(v)))
+        }
+        else {
+            self.1.generate(g).map(|(n,v)| (n, Either::Right(v)))
         }
     }
 }
@@ -372,16 +369,13 @@ impl<'x, I, O, T> Combinator<'x, I, O> for Opt<T> where
 
     type SType = &'x Self::Type;
 
+    type GType = Optional<T::GType>;
+
     fn length(&self, v: Self::SType) -> usize {
         match &v.0 {
             Some(v) => self.0.length(v),
             None => 0,
         }
-    }
-
-    fn gen_length(&self) -> usize {
-        //need to call rng here
-        self.0.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -413,7 +407,7 @@ impl<'x, I, O, T> Combinator<'x, I, O> for Opt<T> where
         }
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         if let Ok((n, v)) = self.0.generate(g) {
             Ok((n, Optional(Some(v))))
         } else {

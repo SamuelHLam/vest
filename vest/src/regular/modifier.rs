@@ -218,12 +218,10 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for Mapped<Inner, M> where
 
     type SType = &'x M::Dst;
 
+    type GType = M::Dst;
+
     fn length(&self, v: Self::SType) -> usize {
         self.inner.length(M::rev_apply(v))
-    }
-
-    fn gen_length(&self) -> usize {
-        self.inner.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -249,7 +247,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for Mapped<Inner, M> where
         self.inner.serialize(M::rev_apply(v), data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
             Err(e) => Err(e),
             Ok((n, v)) => {
@@ -511,12 +509,10 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
 
     type SType = &'x M::Dst;
 
+    type GType = M::Dst;
+
     fn length(&self, v: Self::SType) -> usize {
         self.inner.length(M::rev_apply(v).unwrap())
-    }
-
-    fn gen_length(&self) -> usize {
-        self.inner.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -541,7 +537,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
         self.inner.serialize(M::rev_apply(v).unwrap(), data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
             Err(e) => Err(e),
             Ok((n, v)) => match M::apply(v) {
@@ -663,12 +659,10 @@ impl<'x, I, O, Inner, P> Combinator<'x, I, O> for Refined<Inner, P> where
 
     type SType = Inner::SType;
 
+    type GType = Inner::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         self.inner.length(v)
-    }
-
-    fn gen_length(&self) -> usize {
-        self.inner.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -691,7 +685,7 @@ impl<'x, I, O, Inner, P> Combinator<'x, I, O> for Refined<Inner, P> where
         self.inner.serialize(v, data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
             Ok((n, v)) => if self.predicate.apply(&v) {
                 Ok((n, v))
@@ -788,12 +782,10 @@ impl<'x, I: VestInput, O: VestOutput<I>, Inner: Combinator<'x, I, O>> Combinator
 
     type SType = Inner::SType;
 
+    type GType = Inner::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         self.inner.length(v)
-    }
-
-    fn gen_length(&self) -> usize {
-        self.inner.gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -814,7 +806,7 @@ impl<'x, I: VestInput, O: VestOutput<I>, Inner: Combinator<'x, I, O>> Combinator
         self.inner.serialize(v, data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> Result<(usize, Self::Type), GenerateError> {
+    fn generate(&self, g: &mut GenSt) -> Result<(usize, Self::GType), GenerateError> {
         if self.cond {
             self.inner.generate(g)
         } else {

@@ -213,6 +213,11 @@ pub trait Combinator<'x, I, O>: View where
     /// this is the tuple/sum of the corresponding [`Combinator::SType`] types.
     type SType: View<V = <Self::Type as View>::V>;
 
+    // This should be an owned type (e.g., &[u8] -> Vec<u8>, (&[u8], u8) -> (Vec<u8>, u8))
+    type GType: View<V = <Self::Type as View>::V>;
+
+    //type GType: View<V = <Self::Type as View>::V>;
+
     /// The length of the output buffer.
     /// This can be used to optimize serialization by pre-allocating the buffer.
     fn length(&self, v: Self::SType) -> (len: usize)
@@ -224,9 +229,6 @@ pub trait Combinator<'x, I, O>: View where
         ensures
             len == self@.spec_serialize(v@).len(),
     ;
-
-    // The length of the output buffer used for generation
-    fn gen_length(&self) -> (len: usize);
 
     /// Additional pre-conditions for parsing and serialization
     ///
@@ -303,7 +305,7 @@ pub trait Combinator<'x, I, O>: View where
     ;
 
     // Generation function
-    fn generate(&self, g: &mut GenSt) -> (res: GResult<Self::Type, GenerateError>)
+    fn generate(&self, g: &mut GenSt) -> (res: GResult<Self::GType, GenerateError>)
         requires
             self@.requires(),
             self.ex_requires(),
@@ -370,14 +372,11 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for &C where
 
     type SType = C::SType;
 
+    type GType = C::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         assert(self.ex_requires());
         (*self).length(v)
-    }
-
-    fn gen_length(&self) -> usize {
-        assert(self.ex_requires());
-        (*self).gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -395,7 +394,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for &C where
         (*self).serialize(v, data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         (*self).generate(g)
     }
 }
@@ -459,12 +458,10 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 
     type SType = C::SType;
 
+    type GType = C::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         (**self).length(v)
-    }
-
-    fn gen_length(&self) -> usize {
-        (**self).gen_length()
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -482,7 +479,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
         (**self).serialize(v, data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         (**self).generate(g)
     }
 }

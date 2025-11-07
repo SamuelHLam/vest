@@ -166,11 +166,9 @@ macro_rules! impl_combinator_for_le_uint_type {
 
                 type SType = &'x $int_type;
 
-                fn length(&self, _v: Self::SType) -> usize {
-                    size_of::<$int_type>()
-                }
+                type GType = $int_type;
 
-                fn gen_length(&self) -> usize {
+                fn length(&self, _v: Self::SType) -> usize {
                     size_of::<$int_type>()
                 }
 
@@ -206,11 +204,10 @@ macro_rules! impl_combinator_for_le_uint_type {
                     }
                 }
 
-                //placeholder
-                fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-                    let mut data = vec![0u8; self.gen_length()];
-                    g.rng.fill_bytes(&mut data);
-                    Ok((N, data))
+                fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+                    let data_len = size_of::<$int_type>();
+                    let data: $int_type = g.rng.random();
+                    Ok((data_len, data))
                 }
             }
         } // verus!
@@ -276,11 +273,9 @@ macro_rules! impl_combinator_for_be_uint_type {
 
                 type SType = &'x $int_type;
 
-                fn length(&self, _v: Self::SType) -> usize {
-                    size_of::<$int_type>()
-                }
+                type GType = $int_type;
 
-                fn gen_length(&self) -> usize {
+                fn length(&self, _v: Self::SType) -> usize {
                     size_of::<$int_type>()
                 }
 
@@ -316,11 +311,10 @@ macro_rules! impl_combinator_for_be_uint_type {
                     }
                 }
 
-                //placeholder
-                fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-                    let mut data = vec![0u8; self.gen_length()];
-                    g.rng.fill_bytes(&mut data);
-                    Ok((N, data))
+                fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+                    let data_len = size_of::<$int_type>();
+                    let data: $int_type = g.rng.random();
+                    Ok((data_len, data))
                 }
             }
         } // verus!
@@ -1108,11 +1102,9 @@ impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Le {
 
     type SType = &'x u24;
 
-    fn length(&self, v: Self::SType) -> usize {
-        3
-    }
+    type GType = u24;
 
-    fn gen_length(&self) -> usize {
+    fn length(&self, v: Self::SType) -> usize {
         3
     }
 
@@ -1133,7 +1125,7 @@ impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Le {
         )
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::generate(&Fixed::<3>, g)?;
         Ok((n, u24([bytes[2], bytes[1], bytes[0]])))
     }
@@ -1220,11 +1212,9 @@ impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Be {
 
     type SType = &'x u24;
 
-    fn length(&self, v: Self::SType) -> usize {
-        3
-    }
+    type GType = u24;
 
-    fn gen_length(&self) -> usize {
+    fn length(&self, v: Self::SType) -> usize {
         3
     }
 
@@ -1240,7 +1230,7 @@ impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Be {
         <_ as Combinator<&[u8], Vec<u8>>>::serialize(&Fixed::<3>, &v.0.as_slice(), data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::generate(&Fixed::<3>, g)?;
         Ok((n, u24([bytes[0], bytes[1], bytes[2]])))
     }

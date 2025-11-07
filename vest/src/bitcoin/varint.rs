@@ -5,12 +5,13 @@ use crate::{
         modifier::{
             Cond, PartialIso, Pred, Refined, SpecPartialIso, SpecPartialIsoProof, SpecPred, TryMap,
         },
-        sequence::{Continuation, POrSType, Pair, SpecPair},
+        sequence::{Continuation, PSOrGType, Pair, SpecPair},
         uints::*,
         variant::*,
     },
 };
 use vstd::prelude::*;
+use rand::prelude::*;
 
 verus! {
 
@@ -434,22 +435,23 @@ impl View for BtVarintCont {
     }
 }
 
-impl<'a> Continuation<POrSType<&'a u8, &u8>> for BtVarintCont {
+impl<'a> Continuation<PSOrGType<&'a u8, &u8, u8>> for BtVarintCont {
     type Output = VarintChoice;
 
-    open spec fn requires(&self, t: POrSType<&'a u8, &u8>) -> bool {
+    open spec fn requires(&self, t: PSOrGType<&'a u8, &u8>) -> bool {
         true
     }
 
-    open spec fn ensures(&self, t: POrSType<&'a u8, &u8>, o: Self::Output) -> bool {
+    open spec fn ensures(&self, t: PSOrGType<&'a u8, &u8>, o: Self::Output) -> bool {
         // o@ == (spec_btc_varint_inner().inner.snd)(t@)
         o@ == (self@)(t@)
     }
 
-    fn apply(&self, t: POrSType<&'a u8, &u8>) -> Self::Output {
+    fn apply(&self, t: PSOrGType<&'a u8, &u8, u8>) -> Self::Output {
         let t = match t {
-            POrSType::P(t) => t,
-            POrSType::S(t) => t,
+            PSOrGType::P(t) => t,
+            PSOrGType::S(t) => t,
+            PSOrGType::G(t) => &t,
         };
         ord_choice!(
                     Cond { cond: *t <= 0xFC, inner: Fixed::<0> },
@@ -464,6 +466,8 @@ impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for BtcVarint {
     type Type = VarInt;
 
     type SType = &'a VarInt;
+
+    type GType = VarInt;
 
     fn length(&self, v: Self::SType) -> usize {
         match v {
@@ -483,6 +487,10 @@ impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for BtcVarint {
         SerializeError,
     >) {
         btc_varint_inner().serialize(v, data, pos)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+        todo!()
     }
 }
 

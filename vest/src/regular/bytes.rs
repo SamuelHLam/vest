@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use crate::properties::*;
 use vstd::prelude::*;
 use rand::prelude::*;
@@ -98,11 +100,10 @@ impl<'x, I, O> Combinator<'x, I, O> for Variable where I: VestInput + 'x, O: Ves
 
     type SType = &'x I;
 
-    fn length(&self, v: Self::SType) -> usize {
-        self.0
-    }
+    // This will be Vec<u8>
+    type GType = O;
 
-    fn gen_length(&self) -> usize {
+    fn length(&self, v: Self::SType) -> usize {
         self.0
     }
 
@@ -128,11 +129,9 @@ impl<'x, I, O> Combinator<'x, I, O> for Variable where I: VestInput + 'x, O: Ves
         }
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-        let data_len = self.gen_length();
-        let mut data = vec![0u8; data_len];
-        g.rng.fill_bytes(&mut data);
-        Ok((data_len, data))
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let data_length = self.0;
+        Ok((data_length, <Self::GType>::generate(data_length, g)))
     }
 }
 
@@ -206,11 +205,9 @@ impl<'x, const N: usize, I, O> Combinator<'x, I, O> for Fixed<N> where
 
     type SType = &'x I;
 
-    fn length(&self, v: Self::SType) -> usize {
-        N
-    }
+    type GType = O;
 
-    fn gen_length(&self) -> usize {
+    fn length(&self, v: Self::SType) -> usize {
         N
     }
 
@@ -236,11 +233,8 @@ impl<'x, const N: usize, I, O> Combinator<'x, I, O> for Fixed<N> where
         }
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-        let data_len = self.gen_length();
-        let mut data = vec![0u8; data_len];
-        g.rng.fill_bytes(&mut data);
-        Ok((data_len, data))
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        Ok((N, <Self::GType>::generate(N, g)))
     }
 }
 
@@ -298,11 +292,9 @@ impl<'x, I: VestInput + 'x, O: VestOutput<I>> Combinator<'x, I, O> for Tail {
 
     type SType = &'x I;
 
-    fn length(&self, v: Self::SType) -> usize {
-        v.len()
-    }
+    type GType = O;
 
-    fn gen_length(&self) -> usize {
+    fn length(&self, v: Self::SType) -> usize {
         v.len()
     }
 
@@ -323,11 +315,9 @@ impl<'x, I: VestInput + 'x, O: VestOutput<I>> Combinator<'x, I, O> for Tail {
         }
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-        let data_len = g.rng.random_range(0..100);
-        let mut data = vec![0u8; data_len];
-        g.rng.fill_bytes(&mut data);
-        Ok((data_len, data))
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let data_length:u8 = g.rng.random();
+        Ok((data_length.into(), <Self::GType>::generate(data_length.into(), g)))
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::properties::*;
 use vstd::prelude::*;
+use rand::prelude::*;
 
 verus! {
 
@@ -210,20 +211,23 @@ impl<Fst, Snd, Cont> View for Pair<Fst, Snd, Cont> where
 /// A type that can be either a `PType` or an `SType`, whose `View` is the same as `PType`.
 /// This is used for the continuation in `Pair`.
 #[allow(missing_docs)]
-pub enum POrSType<PType, SType> {
+pub enum PSOrGType<PType, SType, GType> {
     /// Represents the (reference of) parsed type
     P(PType),
     /// Represents the type to be serialized
     S(SType),
+    /// Represents the generated type
+    G(GType),
 }
 
-impl<PType: View, SType: View<V = <PType as View>::V>> View for POrSType<PType, SType> {
+impl<PType: View, SType: View<V = <PType as View>::V>, GType: View> View for PSOrGType<PType, SType, GType> {
     type V = PType::V;
 
     open spec fn view(&self) -> Self::V {
         match self {
-            POrSType::P(p) => p@,
-            POrSType::S(s) => s@,
+            PSOrGType::P(p) => p@,
+            PSOrGType::S(s) => s@,
+            PSOrGType::G(g) => g@,
         }
     }
 }
@@ -236,7 +240,7 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
     Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
     Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
     Fst::SType: Copy,
-    Cont: for <'a>Continuation<POrSType<&'a Fst::Type, Fst::SType>, Output = Snd>,
+    Cont: for <'a>Continuation<PSOrGType<&'a Fst::Type, Fst::SType, Fst::GType>, Output = Snd>,
     Cont: View<V = GhostFn<<Fst::Type as View>::V, Snd::V>>,
     <Fst as Combinator<'x, I, O>>::Type: 'x,
  {
@@ -244,13 +248,11 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
 
     type SType = (Fst::SType, Snd::SType);
 
-    fn length(&self, v: Self::SType) -> usize {
-        let snd = self.snd.apply(POrSType::S(v.0));
-        self.fst.length(v.0) + snd.length(v.1)
-    }
+    type GType = (Fst::GType, Snd::GType);
 
-    fn gen_length(&self) -> usize {
-        0
+    fn length(&self, v: Self::SType) -> usize {
+        let snd = self.snd.apply(PSOrGType::S(v.0));
+        self.fst.length(v.0) + snd.length(v.1)
     }
 
     open spec fn ex_requires(&self) -> bool {
@@ -267,7 +269,7 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
             self@.fst.lemma_parse_length(s@);
         }
         let s_ = s.subrange(n, s.len());
-        let snd = self.snd.apply(POrSType::P(&v1));
+        let snd = self.snd.apply(PSOrGType::P(&v1));
         let (m, v2) = snd.parse(s_)?;
         proof {
             snd@.lemma_parse_length(s@.skip(n as int));
@@ -279,15 +281,18 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
         usize,
         SerializeError,
     >) {
-        let snd = self.snd.apply(POrSType::S(v.0));
+        let snd = self.snd.apply(PSOrGType::S(v.0));
         let n = self.fst.serialize(v.0, data, pos)?;
         let m = snd.serialize(v.1, data, pos + n)?;
         assert(data@ == seq_splice(old(data)@, pos, self@.spec_serialize(v@)));
         Ok(n + m)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
-        // todo
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let (n, v1) = self.fst.generate(g)?;
+        let snd = self.snd.apply(PSOrGType::G(v1));
+        let (m, v2) = snd.generate(g)?;
+        Ok((n + m, (v1, v2)))
     }
 }
 
@@ -353,6 +358,8 @@ impl<'x, Fst, Snd, I, O> Combinator<'x, I, O> for (Fst, Snd) where
 
     type SType = (Fst::SType, Snd::SType);
 
+    type GType = (Fst::GType, Snd::GType); 
+
     fn length(&self, v: Self::SType) -> usize {
         self.0.length(v.0) + self.1.length(v.1)
     }
@@ -382,6 +389,19 @@ impl<'x, Fst, Snd, I, O> Combinator<'x, I, O> for (Fst, Snd) where
         let m = self.1.serialize(v.1, data, pos + n)?;
         assert(data@ == seq_splice(old(data)@, pos, self@.spec_serialize(v@)));
         Ok(n + m)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let (n, v1) = self.0.generate(g)?;
+        // proof {
+        //     self@.0.lemma_parse_length(s@);
+        // }
+        // let s_ = s.subrange(n, s.len());
+        let (m, v2) = self.1.generate(g)?;
+        // proof {
+        //     self.1@.lemma_parse_length(s@.skip(n as int));
+        // }
+        Ok((n + m, (v1, v2)))
     }
 }
 
@@ -476,6 +496,8 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Preceded<Fst, Snd> where
 
     type SType = Snd::SType;
 
+    type GType = Snd::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         (&self.0, &self.1).length(((), v))
     }
@@ -494,6 +516,11 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Preceded<Fst, Snd> where
         SerializeError,
     > {
         (&self.0, &self.1).serialize(((), v), data, pos)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let (n, ((), v)) = (&self.0, &self.1).generate(g)?;
+        Ok((n, v))
     }
 }
 
@@ -588,6 +615,8 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Terminated<Fst, Snd> where
 
     type SType = Fst::SType;
 
+    type GType = Fst::GType;
+
     fn length(&self, v: Self::SType) -> usize {
         (&self.0, &self.1).length((v, ()))
     }
@@ -606,6 +635,11 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Terminated<Fst, Snd> where
         SerializeError,
     > {
         (&self.0, &self.1).serialize((v, ()), data, pos)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let (n, (v, ())) = (&self.0, &self.1).generate(g)?;
+        Ok((n, v))
     }
 }
 

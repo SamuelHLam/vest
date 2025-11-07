@@ -1,8 +1,10 @@
+use crate::properties::GenSt;
 pub use crate::utils::*;
 // use std::rc::Rc;
 use vstd::prelude::*;
 use vstd::slice::*;
 use vstd::*;
+use rand::prelude::*;
 
 verus! {
 
@@ -54,6 +56,7 @@ pub trait VestOutput<I>: View<V = Seq<u8>> where I: View<V = Seq<u8>> {
         ensures
             res == self@.len(),
     ;
+    
 
     /// Copy `input` to `self` starting at index `i`.
     fn set_range(&mut self, i: usize, input: &I) -> (res: ())
@@ -64,6 +67,8 @@ pub trait VestOutput<I>: View<V = Seq<u8>> where I: View<V = Seq<u8>> {
                 input@,
             ).add(old(self)@.subrange(i + input@.len(), self@.len() as int)),
     ;
+
+    fn generate(i: usize, g: &mut GenSt) -> Self;
 }
 
 /// Trait for types that can be used as output for Vest serializers.
@@ -163,6 +168,13 @@ impl<I> VestOutput<I> for Vec<u8> where I: VestPublicInput {
 
     fn set_range(&mut self, i: usize, input: &I) {
         set_range(self, i, input.as_byte_slice());
+    }
+
+    fn generate(i: usize, g: &mut GenSt) -> Self {
+        let mut data = vec![0u8; i];
+        g.rng.fill_bytes(&mut data);
+        data
+        
     }
 }
 
