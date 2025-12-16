@@ -19,6 +19,12 @@ global size_of u64 == 8;
 
 global size_of usize == 8;
 
+// fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+//                     let data_len = size_of::<u8>();
+//                     let data: u8 = g.rng.random();
+//                     Ok((data_len, data))
+//                 }
+
 /// Proof that the size of the unsigned integer types is as expected.
 pub broadcast proof fn size_of_facts()
     ensures

@@ -240,7 +240,7 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
     Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
     Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
     Fst::SType: Copy,
-    Cont: for <'a>Continuation<PSOrGType<&'a Fst::Type, Fst::SType, Fst::GType>, Output = Snd>,
+    Cont: for <'a>Continuation<PSOrGType<&'a Fst::Type, Fst::SType, &'a Fst::GType>, Output = Snd>,
     Cont: View<V = GhostFn<<Fst::Type as View>::V, Snd::V>>,
     <Fst as Combinator<'x, I, O>>::Type: 'x,
  {
@@ -290,7 +290,7 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
 
     fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         let (n, v1) = self.fst.generate(g)?;
-        let snd = self.snd.apply(PSOrGType::G(v1));
+        let snd = self.snd.apply(PSOrGType::G(&v1));
         let (m, v2) = snd.generate(g)?;
         Ok((n + m, (v1, v2)))
     }
@@ -519,7 +519,7 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Preceded<Fst, Snd> where
     }
 
     fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
-        let (n, ((), v)) = (&self.0, &self.1).generate(g)?;
+        let (n, (_, v)) = (&self.0, &self.1).generate(g)?;
         Ok((n, v))
     }
 }
@@ -607,7 +607,7 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Terminated<Fst, Snd> where
     I: VestInput,
     O: VestOutput<I>,
     Fst: Combinator<'x, I, O>,
-    Snd: Combinator<'x, I, O, Type = (), SType = ()>,
+    Snd: Combinator<'x, I, O, Type = (), SType = (), GType = ()>,
     Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
     Snd::V: SecureSpecCombinator<Type = ()>,
  {

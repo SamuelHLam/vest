@@ -375,21 +375,21 @@ impl<'x> PartialIso<'x> for VarIntMapper {
 }
 
 impl SpecCombinator for BtcVarint {
-    type Type = VarInt;
+    type PType = VarInt;
 
     open spec fn requires(&self) -> bool {
         spec_btc_varint_inner().requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         spec_btc_varint_inner().wf(v)
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         spec_btc_varint_inner().spec_parse(s)
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         spec_btc_varint_inner().spec_serialize(v)
     }
 }
@@ -407,7 +407,7 @@ impl SecureSpecCombinator for BtcVarint {
         spec_btc_varint_inner().lemma_prefix_secure(s1, s2);
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         spec_btc_varint_inner().theorem_serialize_parse_roundtrip(v);
     }
 
@@ -442,7 +442,7 @@ impl<'a> Continuation<PSOrGType<&'a u8, &u8, u8>> for BtVarintCont {
         true
     }
 
-    open spec fn ensures(&self, t: PSOrGType<&'a u8, &u8>, o: Self::Output) -> bool {
+    open spec fn ensures(&self, t: PSOrGType<&'a u8, u8>, o: Self::Output) -> bool {
         // o@ == (spec_btc_varint_inner().inner.snd)(t@)
         o@ == (self@)(t@)
     }
@@ -451,7 +451,7 @@ impl<'a> Continuation<PSOrGType<&'a u8, &u8, u8>> for BtVarintCont {
         let t = match t {
             PSOrGType::P(t) => t,
             PSOrGType::S(t) => t,
-            PSOrGType::G(t) => &t,
+            PSOrGType::G(t) => t,
         };
         ord_choice!(
                     Cond { cond: *t <= 0xFC, inner: Fixed::<0> },
@@ -463,7 +463,7 @@ impl<'a> Continuation<PSOrGType<&'a u8, &u8, u8>> for BtVarintCont {
 }
 
 impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for BtcVarint {
-    type Type = VarInt;
+    type PType = VarInt;
 
     type SType = &'a VarInt;
 
@@ -478,7 +478,7 @@ impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for BtcVarint {
         }
     }
 
-    fn parse(&self, s: &'a [u8]) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: &'a [u8]) -> (res: Result<(usize, Self::PType), ParseError>) {
         <_ as Combinator<'a, &'a [u8], Vec<u8>>>::parse(&btc_varint_inner(), s)
     }
 
@@ -489,7 +489,7 @@ impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for BtcVarint {
         btc_varint_inner().serialize(v, data, pos)
     }
 
-    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::Type), GenerateError>) {
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::PType), GenerateError>) {
         todo!()
     }
 }

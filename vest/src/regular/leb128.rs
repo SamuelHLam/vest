@@ -59,9 +59,9 @@ macro_rules! n_bit_max_unsigned {
 pub(super) use n_bit_max_unsigned;
 
 impl SpecCombinator for UnsignedLEB128 {
-    type Type = UInt;
+    type PType = UInt;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)>
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)>
         decreases s.len(),
     {
         let v = take_low_7_bits!(s.first());
@@ -74,21 +74,21 @@ impl SpecCombinator for UnsignedLEB128 {
                     ) =>
                     // Check for overflow and canonicity (v2 should not be 0)
                     if n < usize::MAX && 0 < v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7) {
-                        Some((n + 1, v2 << 7 | v as Self::Type))
+                        Some((n + 1, v2 << 7 | v as Self::PType))
                     } else {
                         None
                     },
                     None => None,
                 }
             } else {
-                Some((1, v as Self::Type))
+                Some((1, v as Self::PType))
             }
         } else {
             None
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         Self::spec_serialize_helper(v)
     }
 }
@@ -228,7 +228,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         }
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type)
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType)
         decreases v,
     {
         let s = self.spec_serialize(v);
@@ -270,10 +270,10 @@ impl SecureSpecCombinator for UnsignedLEB128 {
                     self.lemma_parse_length(s.drop_first());
 
                     assert(self.spec_serialize(v2) == s.drop_first().take(n2 as int));
-                    assert(v == v2 << 7 | take_low_7_bits!(s0) as Self::Type);
+                    assert(v == v2 << 7 | take_low_7_bits!(s0) as Self::PType);
 
                     assert(0 < v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7) ==> v == v2 << 7
-                        | take_low_7_bits!(s0) as Self::Type ==> is_high_8_bit_set!(s0) ==> v >> 7
+                        | take_low_7_bits!(s0) as Self::PType ==> is_high_8_bit_set!(s0) ==> v >> 7
                         != 0 && take_low_7_bits!(v) == take_low_7_bits!(s0)
                         && set_high_8_bit!(take_low_7_bits!(v)) == s0 && v2 == v >> 7)
                         by (bit_vector);
@@ -310,7 +310,7 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
     I: VestPublicInput,
     O: VestPublicOutput<I>,
  {
-    type Type = UInt;
+    type PType = UInt;
 
     type SType = &'x UInt;
 
@@ -327,9 +327,9 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
         acc
     }
 
-    fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
+    fn parse(&self, ss: I) -> (res: PResult<Self::PType, ParseError>) {
         let s = ss.as_byte_slice();
-        let mut acc: Self::Type = 0;
+        let mut acc: Self::PType = 0;
         let mut i = 0;
         let mut shift = 0;
 
@@ -408,57 +408,57 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
 
                             assert(rest > 1 ==> rest <= n_bit_max_unsigned!(8 * uint_size!() - 7)
                                 ==> {
-                                ||| ((((((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type) << 7
-                                    | take_low_7_bits!(s4) as Self::Type) << 7
-                                    | take_low_7_bits!(s3) as Self::Type) << 7
-                                    | take_low_7_bits!(s2) as Self::Type) << 7
-                                    | take_low_7_bits!(s1) as Self::Type)
+                                ||| ((((((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType) << 7
+                                    | take_low_7_bits!(s4) as Self::PType) << 7
+                                    | take_low_7_bits!(s3) as Self::PType) << 7
+                                    | take_low_7_bits!(s2) as Self::PType) << 7
+                                    | take_low_7_bits!(s1) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| (((((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type) << 7
-                                    | take_low_7_bits!(s4) as Self::Type) << 7
-                                    | take_low_7_bits!(s3) as Self::Type) << 7
-                                    | take_low_7_bits!(s2) as Self::Type)
+                                ||| (((((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType) << 7
+                                    | take_low_7_bits!(s4) as Self::PType) << 7
+                                    | take_low_7_bits!(s3) as Self::PType) << 7
+                                    | take_low_7_bits!(s2) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| (((((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type) << 7
-                                    | take_low_7_bits!(s4) as Self::Type) << 7
-                                    | take_low_7_bits!(s3) as Self::Type) << 7
-                                    | take_low_7_bits!(s2) as Self::Type)
+                                ||| (((((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType) << 7
+                                    | take_low_7_bits!(s4) as Self::PType) << 7
+                                    | take_low_7_bits!(s3) as Self::PType) << 7
+                                    | take_low_7_bits!(s2) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| ((((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type) << 7
-                                    | take_low_7_bits!(s4) as Self::Type) << 7
-                                    | take_low_7_bits!(s3) as Self::Type)
+                                ||| ((((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType) << 7
+                                    | take_low_7_bits!(s4) as Self::PType) << 7
+                                    | take_low_7_bits!(s3) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| (((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type) << 7
-                                    | take_low_7_bits!(s4) as Self::Type)
+                                ||| (((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType) << 7
+                                    | take_low_7_bits!(s4) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| ((((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type) << 7
-                                    | take_low_7_bits!(s5) as Self::Type)
+                                ||| ((((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType) << 7
+                                    | take_low_7_bits!(s5) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| (((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type) << 7
-                                    | take_low_7_bits!(s6) as Self::Type)
+                                ||| (((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType) << 7
+                                    | take_low_7_bits!(s6) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| ((rest << 7 | take_low_7_bits!(s8) as Self::Type) << 7
-                                    | take_low_7_bits!(s7) as Self::Type)
+                                ||| ((rest << 7 | take_low_7_bits!(s8) as Self::PType) << 7
+                                    | take_low_7_bits!(s7) as Self::PType)
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
-                                ||| rest << 7 | take_low_7_bits!(s8) as Self::Type
+                                ||| rest << 7 | take_low_7_bits!(s8) as Self::PType
                                     > n_bit_max_unsigned!(8 * uint_size!() - 7)
                             }) by (bit_vector);
 
@@ -471,12 +471,12 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
                                 if self.spec_parse(s@) is Some {
                                     assert(self.spec_parse(s@).unwrap().1 == self.spec_parse(
                                         s@.drop_first(),
-                                    ).unwrap().1 << 7 | take_low_7_bits!(s0) as Self::Type);
+                                    ).unwrap().1 << 7 | take_low_7_bits!(s0) as Self::PType);
 
                                     assert(self.spec_parse(s@).unwrap().1 == (self.spec_parse(
                                         s@.drop_first().drop_first(),
-                                    ).unwrap().1 << 7 | take_low_7_bits!(s1) as Self::Type) << 7
-                                        | take_low_7_bits!(s0) as Self::Type);
+                                    ).unwrap().1 << 7 | take_low_7_bits!(s1) as Self::PType) << 7
+                                        | take_low_7_bits!(s0) as Self::PType);
 
                                     assert(s@.drop_first().drop_first().drop_first().drop_first().drop_first().drop_first().drop_first().drop_first().drop_first()
                                         == s@.skip(9));
@@ -516,7 +516,7 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
             // No overflow for i < 9
 
             assert(i < 9 ==> v == take_low_7_bits!(s_i) ==> acc <= n_bit_max_unsigned!(i * 7)
-                ==> acc | (v as Self::Type) << (i * 7) <= n_bit_max_unsigned!((i + 1) * 7))
+                ==> acc | (v as Self::PType) << (i * 7) <= n_bit_max_unsigned!((i + 1) * 7))
                 by (bit_vector);
 
             // No overflow for i == 9
@@ -525,7 +525,7 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
                 by (bit_vector);
 
             let ghost prev_acc = acc;
-            acc = acc | (v as Self::Type) << shift;
+            acc = acc | (v as Self::PType) << shift;
 
             if !hi_set {
                 // Defined by defn of spec_parse
@@ -561,10 +561,10 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
                     // Defined by rest1
                     let rest2 = self.spec_parse(s@.skip(i as int).drop_first()).unwrap().1;
 
-                    assert(v == take_low_7_bits!(s_i) ==> acc == prev_acc | (v as Self::Type) << (i
+                    assert(v == take_low_7_bits!(s_i) ==> acc == prev_acc | (v as Self::PType) << (i
                         * 7)
                     // By defn of spec_parse
-                     ==> rest1 == rest2 << 7 | v as Self::Type
+                     ==> rest1 == rest2 << 7 | v as Self::PType
                     // By IH
                      ==> res == prev_acc | rest1 << (i * 7) ==> res == acc | rest2 << ((i + 1) * 7))
                         by (bit_vector);
@@ -572,7 +572,7 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
                     // assert(
                     //     i < 9
                     //     ==> rest2 > n_bit_max_unsigned!(8 * uint_size!() - 7 * (i + 1))
-                    //     ==> rest2 << 7 | take_low_7_bits!(s_i) as Self::Type
+                    //     ==> rest2 << 7 | take_low_7_bits!(s_i) as Self::PType
                     //         > n_bit_max_unsigned!(8 * uint_size!() - 7 * i)
                     // ) by (bit_vector);
                 }
@@ -590,7 +590,7 @@ impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
                         // Prove precondition of IH 2
                         assert(i < 9 ==> v == take_low_7_bits!(s_i) ==> 0 < rest2
                             <= n_bit_max_unsigned!(8 * uint_size!() - 7 * (i + 1)) ==> 0 < (rest2
-                            << 7 | v as Self::Type)
+                            << 7 | v as Self::PType)
                             <= n_bit_max_unsigned!(8 * uint_size!() - 7 * i)) by (bit_vector);
                     }
                 }

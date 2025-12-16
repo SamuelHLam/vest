@@ -109,12 +109,12 @@ impl<S1, S2, S3> DisjointFrom<S3> for Choice<S1, S2> where
 impl<U1, U2, M1, M2> DisjointFrom<Mapped<U2, M2>> for Mapped<U1, M1> where
     U1: DisjointFrom<U2>,
     U2: SpecCombinator,
-    M1: SpecIso<Src = U1::Type>,
-    M2: SpecIso<Src = U2::Type>,
-    U1::Type: SpecFrom<M1::Dst>,
-    U2::Type: SpecFrom<M2::Dst>,
-    M1::Dst: SpecFrom<U1::Type>,
-    M2::Dst: SpecFrom<U2::Type>,
+    M1: SpecIso<Src = U1::PType>,
+    M2: SpecIso<Src = U2::PType>,
+    U1::PType: SpecFrom<M1::Dst>,
+    U2::PType: SpecFrom<M2::Dst>,
+    M1::Dst: SpecFrom<U1::PType>,
+    M2::Dst: SpecFrom<U2::PType>,
  {
     open spec fn disjoint_from(&self, other: &Mapped<U2, M2>) -> bool {
         self.inner.disjoint_from(&other.inner)
@@ -129,12 +129,12 @@ impl<U1, U2, M1, M2> DisjointFrom<Mapped<U2, M2>> for Mapped<U1, M1> where
 // `TryMap<U, M2>`
 impl<U, M1, M2> DisjointFrom<TryMap<U, M2>> for TryMap<U, M1> where
     U: SpecCombinator,
-    M1: SpecPartialIsoFn<Src = U::Type>,
-    M2: SpecPartialIsoFn<Src = U::Type>,
-    U::Type: SpecTryFrom<M1::Dst>,
-    U::Type: SpecTryFrom<M2::Dst>,
-    M1::Dst: SpecTryFrom<U::Type>,
-    M2::Dst: SpecTryFrom<U::Type>,
+    M1: SpecPartialIsoFn<Src = U::PType>,
+    M2: SpecPartialIsoFn<Src = U::PType>,
+    U::PType: SpecTryFrom<M1::Dst>,
+    U::PType: SpecTryFrom<M2::Dst>,
+    M1::Dst: SpecTryFrom<U::PType>,
+    M2::Dst: SpecTryFrom<U::PType>,
  {
     open spec fn disjoint_from(&self, other: &TryMap<U, M2>) -> bool {
         self.inner == other.inner && forall|t|
@@ -165,8 +165,8 @@ impl<Inner1, Inner2> DisjointFrom<Cond<Inner2>> for Cond<Inner1> where
 // fails, then `self` is disjoint from `other`
 impl<Inner, P1, P2> DisjointFrom<Refined<Inner, P2>> for Refined<Inner, P1> where
     Inner: SpecCombinator,
-    P1: SpecPred<Inner::Type>,
-    P2: SpecPred<Inner::Type>,
+    P1: SpecPred<Inner::PType>,
+    P2: SpecPred<Inner::PType>,
  {
     open spec fn disjoint_from(&self, other: &Refined<Inner, P2>) -> bool {
         self.inner == other.inner && forall|i|

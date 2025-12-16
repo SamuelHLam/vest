@@ -198,6 +198,131 @@ pub trait SecureSpecCombinator: SpecCombinator {
     }
 }
 
+pub trait GtoPType<T>
+//where
+ //   T: ?Sized,
+{
+    // reference not used because lifetime must be specified in implementation
+    fn g_ref(&self) -> T;
+}
+
+pub trait PtoSType<T>
+where
+   T: ?Sized,
+{
+    // reference not used because lifetime must be specified in implementation
+    fn p_ref(&self) -> T;
+}
+
+// impl<'x, 'y: 'x> VestRef<&'x u8> for &'y u8 {
+//     fn owned_refer(self) -> &'x u8 {
+//         self
+//     }
+
+//     fn refer(self) -> &'x u8 {
+//         &self
+//     }
+// }
+
+macro_rules! ref_for_uint {
+    ($int_type:ty) => {
+        ::vstd::prelude::verus! {
+
+            impl GtoPType<$int_type> for $int_type {
+
+                fn g_ref(&self) -> $int_type {
+                    *self
+                }
+            }
+
+            impl PtoSType<$int_type> for $int_type {
+
+                fn p_ref(&self) -> $int_type {
+                    *self
+                }
+            }
+        }
+    }
+}
+
+
+macro_rules! ref_for_uint_ref {
+    ($int_type:ty) => {
+        ::vstd::prelude::verus! {
+
+            impl<'x> GtoPType<$int_type> for &'x $int_type {
+
+                fn g_ref(&self) -> $int_type {
+                    **self
+                }
+            }
+
+            impl<'x> PtoSType<$int_type> for &'x $int_type {
+
+                fn p_ref(&self) -> $int_type {
+                    
+                    **self
+                }
+            }
+        }
+    }
+}
+
+ref_for_uint!(u8);
+ref_for_uint!(u16);
+ref_for_uint!(u32);
+ref_for_uint!(u64);
+
+ref_for_uint_ref!(u8);
+ref_for_uint_ref!(u16);
+ref_for_uint_ref!(u32);
+ref_for_uint_ref!(u64);
+
+// 'y must outlive 'x because Vec must outlive slice
+// Vec<T> -> &[T]
+impl<'x, 'y: 'x, T> GtoPType<&'x [T]> for &'y Vec<T> {
+    fn g_ref(&self) -> &'x [T] {
+        self.as_slice()
+    }
+}
+
+// Vec<T> -> &[T]
+impl<'x, 'y: 'x, T> PtoSType<&'x [T]> for &'y Vec<T> {
+    fn p_ref(&self) -> &'x [T] {
+        self.as_slice()
+    }
+}
+
+// &[T] -> &[T]
+impl<'x, 'y: 'x, T> PtoSType<&'x [T]> for &'y [T] {
+    fn p_ref(&self) -> &'x [T] {
+        self
+    }
+}
+
+// Vec<Vec<T>> -> Vec<&[T]>
+impl<A:GtoPType<B> + Clone, B> GtoPType<Vec<B>> for &Vec<A> {
+    fn g_ref(&self) -> Vec<B> {
+        self.iter().map(|x| x.clone().g_ref()).collect::<Vec<_>>()
+    }
+}
+
+// Pair(A,B) -> Pair(ref(A), ref(B))
+
+impl<A:GtoPType<C>, B:GtoPType<D>, C, D> GtoPType<(C, D)> for (A, B) {
+    fn g_ref(&self) -> (C,D) {
+        (self.0.g_ref(), self.1.g_ref())
+    }
+}
+
+// Pair(A,B) -> Pair(ref(A), ref(B))
+impl<A:PtoSType<C>, B:PtoSType<D>, C, D> PtoSType<(C, D)> for (A, B) {
+    fn p_ref(&self) -> (C,D) {
+        (self.0.p_ref(), self.1.p_ref())
+    }
+}
+
+
 /// Implementation for parser and serializer combinators. A combinator's view must be a
 /// [`SecureSpecCombinator`].
 pub trait Combinator<'x, I, O>: View where
@@ -205,16 +330,17 @@ pub trait Combinator<'x, I, O>: View where
     O: VestOutput<I>,
     Self::V: SecureSpecCombinator<Type = <Self::Type as View>::V>,
  {
+
+    // This should be an owned type (e.g., &[u8] -> Vec<u8>, (&[u8], u8) -> (Vec<u8>, u8))
+    type GType: View;
+
     /// The result type of parsing
-    type Type: View;
+    type Type: View<V = <Self::GType as View>::V> + GtoPType<Self::GType>;
 
     /// The input type of serialization, often a reference to [`Self::Type`].
     /// For "structural" formats though (e.g., [`crate::regular::sequence::Pair`] and [`crate::regular::variant::Choice`]),
     /// this is the tuple/sum of the corresponding [`Combinator::SType`] types.
-    type SType: View<V = <Self::Type as View>::V>;
-
-    // This should be an owned type (e.g., &[u8] -> Vec<u8>, (&[u8], u8) -> (Vec<u8>, u8))
-    type GType: View<V = <Self::Type as View>::V>;
+    type SType: View<V = <Self::GType as View>::V> + PtoSType<Self::Type>;
 
     //type GType: View<V = <Self::Type as View>::V>;
 
@@ -311,6 +437,11 @@ pub trait Combinator<'x, I, O>: View where
             self.ex_requires(),
             //s@.len() <= usize::MAX,
     ;
+
+    // Relation between GType, Type, and SType
+    
+
+    
 }
 
 impl<C: SpecCombinator> SpecCombinator for &C {

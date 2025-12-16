@@ -198,12 +198,14 @@ impl<const N: usize> SecureSpecCombinator for Fixed<N> {
 }
 
 impl<'x, const N: usize, I, O> Combinator<'x, I, O> for Fixed<N> where
-    I: VestInput + 'x,
+    I: VestInput + 'x + GtoPType<O>,
     O: VestOutput<I>,
  {
     type Type = I;
 
-    type SType = &'x I;
+    type SType = PtoSType<Self::Type>::p_ref();
+
+    // type SType = &'x I;
 
     type GType = O;
 

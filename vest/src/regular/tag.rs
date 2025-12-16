@@ -55,17 +55,17 @@ impl<Inner: View, T: View> View for Tag<Inner, T> {
 }
 
 impl<Inner: SpecCombinator<Type = T>, T> SpecCombinator for Tag<Inner, T> {
-    type Type = ();
+    type PType = ();
 
     open spec fn requires(&self) -> bool {
         self.0.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         self.0.wf(self.0.predicate.0)
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, _)) = self.0.spec_parse(s) {
             Some((n, ()))
         } else {
@@ -73,7 +73,7 @@ impl<Inner: SpecCombinator<Type = T>, T> SpecCombinator for Tag<Inner, T> {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         self.0.spec_serialize(self.0.predicate.0)
     }
 }
@@ -87,7 +87,7 @@ impl<Inner: SecureSpecCombinator<Type = T>, T> SecureSpecCombinator for Tag<Inne
         self.0.is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         self.0.theorem_serialize_parse_roundtrip(self.0.predicate.0);
     }
 
@@ -148,7 +148,7 @@ macro_rules! impl_combinator_for_uint_tag {
                 I: VestPublicInput,
                 O: VestPublicOutput<I>,
             {
-                type Type = ();
+                type PType = ();
 
                 type SType = ();
 
@@ -160,7 +160,7 @@ macro_rules! impl_combinator_for_uint_tag {
                     <_ as Combinator<'x, I, O>>::ex_requires(&self.0)
                 }
 
-                fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+                fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
                     let (n, _) = <_ as Combinator<'x, I, O>>::parse(&self.0, s)?;
                     Ok((n, ()))
                 }
@@ -195,7 +195,7 @@ impl<'x, const N: usize> Combinator<'x, &'x [u8], Vec<u8>> for Tag<
     bytes::Fixed::<N>,
     [u8; N],
 > where  {
-    type Type = ();
+    type PType = ();
 
     type SType = ();
 
@@ -207,7 +207,7 @@ impl<'x, const N: usize> Combinator<'x, &'x [u8], Vec<u8>> for Tag<
         <_ as Combinator<'x, &'x [u8], Vec<u8>>>::ex_requires(&self.0)
     }
 
-    fn parse(&self, s: &'x [u8]) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: &'x [u8]) -> Result<(usize, Self::PType), ParseError> {
         let (n, _) = <_ as Combinator<'x, &'x [u8], Vec<u8>>>::parse(&self.0, s)?;
         Ok((n, ()))
     }

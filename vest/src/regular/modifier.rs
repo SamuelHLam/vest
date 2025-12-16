@@ -332,6 +332,9 @@ pub trait PartialIso<'x>: View where
     /// The reference of the [`Src`] type.
     type RefSrc: View<V = <Self::Src as View>::V> + TryFrom<&'x Self::Dst>;
 
+    /// Owned source type
+    // type OwnedSrc: View<V = <Self::Src as View>::V> + TryFrom<&'x Self::Dst>;
+
     /// The destination type
     type Dst: View + TryFrom<Self::Src>;
 }
@@ -492,6 +495,30 @@ impl<Inner, M> SecureSpecCombinator for TryMap<Inner, M> where
     }
 }
 
+/// A type that can be either a `PType` or an `SType`, whose `View` is the same as `PType`.
+/// This is used for the continuation in `Pair`.
+#[allow(missing_docs)]
+pub enum PSOrGType<PType, SType, GType> {
+    /// Represents the (reference of) parsed type
+    P(PType),
+    /// Represents the type to be serialized
+    S(SType),
+    /// Represents the generated type
+    G(GType),
+}
+
+impl<PType: View, SType: View<V = <PType as View>::V>, GType: View> View for PSOrGType<PType, SType, GType> {
+    type V = PType::V;
+
+    open spec fn view(&self) -> Self::V {
+        match self {
+            PSOrGType::P(p) => p@,
+            PSOrGType::S(s) => s@,
+            PSOrGType::G(g) => g@,
+        }
+    }
+}
+
 impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
     I: VestInput,
     O: VestOutput<I>,
@@ -504,6 +531,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
     <Inner::Type as View>::V: SpecTryFrom<<M::Dst as View>::V>,
     <M::Dst as View>::V: SpecTryFrom<<Inner::Type as View>::V>,
     <Inner::SType as TryFrom<&'x M::Dst>>::Error: std::fmt::Debug,
+    // ref OwnedDst -> Dst
  {
     type Type = M::Dst;
 
@@ -540,7 +568,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
     fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
             Err(e) => Err(e),
-            Ok((n, v)) => match M::apply(v) {
+            Ok((n, v)) => match M::apply(PSOrGType::G(v)) {
                 Ok(v) => Ok((n, v)),
                 Err(_) => Err(GenerateError::Generic),
             }

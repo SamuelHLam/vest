@@ -59,9 +59,9 @@ macro_rules! n_bit_max_unsigned {
 pub(super) use n_bit_max_unsigned;
 
 impl SpecCombinator for UnsignedLEB128 {
-    type Type = UInt;
+    type PType = UInt;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()>
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::PType), ()>
         decreases s.len(),
     {
         let v = take_low_7_bits!(s.first());
@@ -74,33 +74,33 @@ impl SpecCombinator for UnsignedLEB128 {
                     ) =>
                     // Check for overflow and canonicity (v2 should not be 0)
                     if n < usize::MAX && 0 < v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7) {
-                        Ok(((n + 1) as usize, v2 << 7 | v as Self::Type))
+                        Ok(((n + 1) as usize, v2 << 7 | v as Self::PType))
                     } else {
                         Err(())
                     },
                     Err(e) => Err(e),
                 }
             } else {
-                Ok((1, v as Self::Type))
+                Ok((1, v as Self::PType))
             }
         } else {
             Err(())
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Result<Seq<u8>, ()> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Result<Seq<u8>, ()> {
         Self::spec_serialize_helper(v)
     }
 }
 
 impl UnsignedLEB128 {
     // /// Version of spec_parse that uses an accumulator pattern
-    // open spec fn spec_parse_alt(&self, s: Seq<u8>, acc: UInt, i: usize) -> Result<(usize, Self::Type), ()>
+    // open spec fn spec_parse_alt(&self, s: Seq<u8>, acc: UInt, i: usize) -> Result<(usize, Self::PType), ()>
     //     decreases s.len()
     // {
     //     if s.len() != 0 {
     //         let v = take_low_7_bits!(s.first());
-    //         let new_acc = acc | ((v as Self::Type) << (i * 7));
+    //         let new_acc = acc | ((v as Self::PType) << (i * 7));
     //         if is_high_8_bit_set!(s.first()) {
     //             if i < usize::MAX - 1 && new_acc <= n_bit_max_unsigned!(8 * uint_size!()) {
     //                 self.spec_parse_alt(s.drop_first(), new_acc, i + 1)
@@ -377,7 +377,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         }
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type)
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType)
         decreases v,
     {
         if let Ok(s) = self.spec_serialize(v) {
@@ -442,7 +442,7 @@ impl<I: std::fmt::Debug, O> Combinator<I, O> for UnsignedLEB128 where
     I: VestPublicInput,
     O: VestPublicOutput<I>,
  {
-    type Type = UInt;
+    type PType = UInt;
 
     open spec fn spec_length(&self) -> Option<usize> {
         None  // TODO
@@ -458,13 +458,13 @@ impl<I: std::fmt::Debug, O> Combinator<I, O> for UnsignedLEB128 where
         true
     }
 
-    fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
+    fn parse(&self, ss: I) -> (res: PResult<Self::PType, ParseError>) {
         self.exec_parse_rec_helper(ss.as_byte_slice())
     }
 
-    // fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
+    // fn parse(&self, ss: I) -> (res: PResult<Self::PType, ParseError>) {
     //     let s = ss.as_byte_slice();
-    //     let mut result: Self::Type = 0;
+    //     let mut result: Self::PType = 0;
     //     let mut shift = 0;
     //     let mut i = 0;
     //     if s.len() == 0 {
@@ -495,7 +495,7 @@ impl<I: std::fmt::Debug, O> Combinator<I, O> for UnsignedLEB128 where
     //         }
     //         proof { admit() };
     //         let byte = s[i];
-    //         result |= (take_low_7_bits!(byte) as Self::Type) << shift;
+    //         result |= (take_low_7_bits!(byte) as Self::PType) << shift;
     //         shift += 7;
     //         i += 1;
     //         if !is_high_8_bit_set!(byte) {
@@ -508,13 +508,13 @@ impl<I: std::fmt::Debug, O> Combinator<I, O> for UnsignedLEB128 where
         true
     }
 
-    fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<
+    fn serialize(&self, v: Self::PType, buf: &mut O, pos: usize) -> (res: SResult<
         usize,
         SerializeError,
     >) {
         self.exec_serialize_rec_helper(v, buf, pos)
     }
-    // fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
+    // fn serialize(&self, v: Self::PType, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
     //     let ghost orig_v = v;
     //     let mut v = v;
     //     let mut i = 0;

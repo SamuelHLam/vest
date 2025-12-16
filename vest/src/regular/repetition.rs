@@ -337,6 +337,8 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
 
     type SType = &'x RepeatResult<C::Type>;
 
+    type GType = RepeatResult<C::Type>;
+
     fn length(&self, vs: Self::SType) -> usize {
         let mut len = 0;
         proof {
@@ -441,6 +443,42 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
         }
         assert(_vs == _vs.take(vs.0.len() as int));
         Ok(pos - old_pos)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let (mut s, mut len, mut vs) = (input, 0usize, Vec::new());
+        assert(RepeatResult(vs)@ =~= seq![]);
+
+        for i in 0..self.1
+            invariant
+                0 <= i <= self.1,
+                self.ex_requires(),
+                self@.requires(),
+                0 <= len <= input@.len() <= usize::MAX,
+                s@ =~= input@.skip(len as int),  // <-- this is the key
+                self@.parse_correct(input@, i, Ok::<_, ParseError>((len, RepeatResult(vs)@))),
+            decreases self.1 - i,
+        {
+            match self.0.generate(s.clone()) {
+                Ok((n, v)) => {
+                    assert(0 <= n <= input@.skip(len as int).len()) by {
+                        self@.0.lemma_parse_length(s@);
+                    }
+                    let ghost old_vs = RepeatResult(vs)@;
+                    vs.push(v);
+                    len += n;
+                    s = s.subrange(n, s.len());
+                    assert(RepeatResult(vs)@ == old_vs.push(v@));
+                },
+                Err(e) => {
+                    proof {
+                        self@.lemma_spec_parse_err_unrecoverable(input@, (i + 1) as usize, self.1);
+                    }
+                    return Err(e);
+                },
+            }
+        }
+        Ok((len, RepeatResult(vs)))
     }
 }
 

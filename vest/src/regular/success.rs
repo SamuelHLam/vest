@@ -15,13 +15,13 @@ impl View for Success {
 }
 
 impl SpecCombinator for Success {
-    type Type = ();
+    type PType = ();
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         Some((0, ()))
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         Seq::empty()
     }
 }
@@ -38,7 +38,7 @@ impl SecureSpecCombinator for Success {
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) {
@@ -53,7 +53,7 @@ impl SecureSpecCombinator for Success {
 }
 
 impl<'x, I: VestInput, O: VestOutput<I>> Combinator<'x, I, O> for Success {
-    type Type = ();
+    type PType = ();
 
     type SType = ();
 
@@ -61,7 +61,7 @@ impl<'x, I: VestInput, O: VestOutput<I>> Combinator<'x, I, O> for Success {
         0
     }
 
-    fn parse(&self, _s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, _s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         Ok((0, ()))
     }
 
