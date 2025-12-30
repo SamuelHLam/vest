@@ -125,37 +125,37 @@ impl<Inner: View, M: View> View for Mapped<Inner, M> {
 
 impl<Inner, M> SpecCombinator for Mapped<Inner, M> where
     Inner: SpecCombinator,
-    M: SpecIso<Src = Inner::Type>,
-    Inner::Type: SpecFrom<M::Dst>,
-    M::Dst: SpecFrom<Inner::Type>,
+    M: SpecIso<Src = Inner::PType>,
+    Inner::PType: SpecFrom<M::Dst>,
+    M::Dst: SpecFrom<Inner::PType>,
  {
-    type Type = M::Dst;
+    type PType = M::Dst;
 
     open spec fn requires(&self) -> bool {
         self.inner.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         self.inner.wf(M::spec_rev_apply(v))
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         match self.inner.spec_parse(s) {
             Some((n, v)) => Some((n, M::spec_apply(v))),
             None => None,
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         self.inner.spec_serialize(M::spec_rev_apply(v))
     }
 }
 
 impl<Inner, M> SecureSpecCombinator for Mapped<Inner, M> where
     Inner: SecureSpecCombinator,
-    M: SpecIsoProof<Src = Inner::Type>,
-    Inner::Type: SpecFrom<M::Dst>,
-    M::Dst: SpecFrom<Inner::Type>,
+    M: SpecIsoProof<Src = Inner::PType>,
+    Inner::PType: SpecFrom<M::Dst>,
+    M::Dst: SpecFrom<Inner::PType>,
  {
     open spec fn is_prefix_secure() -> bool {
         Inner::is_prefix_secure()
@@ -165,7 +165,7 @@ impl<Inner, M> SecureSpecCombinator for Mapped<Inner, M> where
         self.inner.is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         let buf = self.inner.spec_serialize(M::spec_rev_apply(v));
         M::spec_iso_rev(v);
         self.inner.theorem_serialize_parse_roundtrip(M::spec_rev_apply(v))
@@ -202,19 +202,20 @@ impl<Inner, M> SecureSpecCombinator for Mapped<Inner, M> where
     }
 }
 
-impl<'x, I, O, Inner, M> Combinator<'x, I, O> for Mapped<Inner, M> where
+impl<'x, I, O, S, Inner, M> Combinator<'x, I, O, S> for Mapped<Inner, M> where
     I: VestInput,
-    O: VestOutput<I>,
-    Inner: Combinator<'x, I, O>,
-    Inner::V: SecureSpecCombinator<Type = <Inner::Type as View>::V>,
-    M: Iso<'x, Src = Inner::Type, RefSrc = Inner::SType>,
-    M::Dst: From<Inner::Type> + View,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Inner: Combinator<'x, I, O, S>,
+    Inner::V: SecureSpecCombinator<PType = <Inner::PType as View>::V>,
+    M: Iso<'x, Src = Inner::PType, RefSrc = Inner::SType>,
+    M::Dst: From<Inner::PType> + View,
     Inner::SType: From<&'x M::Dst> + View,
-    M::V: SpecIsoProof<Src = <Inner::Type as View>::V, Dst = <M::Dst as View>::V>,
-    <Inner::Type as View>::V: SpecFrom<<M::Dst as View>::V>,
-    <M::Dst as View>::V: SpecFrom<<Inner::Type as View>::V>,
+    M::V: SpecIsoProof<Src = <Inner::PType as View>::V, Dst = <M::Dst as View>::V>,
+    <Inner::PType as View>::V: SpecFrom<<M::Dst as View>::V>,
+    <M::Dst as View>::V: SpecFrom<<Inner::PType as View>::V>,
  {
-    type Type = M::Dst;
+    type PType = M::Dst;
 
     type SType = &'x M::Dst;
 
@@ -228,7 +229,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for Mapped<Inner, M> where
         self.inner.ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         match self.inner.parse(s) {
             Err(e) => Err(e),
             Ok((n, v)) => {
@@ -244,14 +245,14 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for Mapped<Inner, M> where
         usize,
         SerializeError,
     >) {
-        self.inner.serialize(M::rev_apply(v), data, pos)
+        self.inner.serialize(M::rev_apply(&v), data, pos)
     }
 
     fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
             Err(e) => Err(e),
             Ok((n, v)) => {
-                Ok((n, M::apply(v)))
+                Ok((n, M::apply(CompleteRef::own_to_ref(&v))))
             }
         }
     }
@@ -408,24 +409,24 @@ impl<Inner: View, M: View> View for TryMap<Inner, M> {
 
 impl<Inner, M> SpecCombinator for TryMap<Inner, M> where
     Inner: SpecCombinator,
-    M: SpecPartialIso<Src = Inner::Type>,
-    Inner::Type: SpecTryFrom<M::Dst>,
-    M::Dst: SpecTryFrom<Inner::Type>,
+    M: SpecPartialIso<Src = Inner::PType>,
+    Inner::PType: SpecTryFrom<M::Dst>,
+    M::Dst: SpecTryFrom<Inner::PType>,
  {
-    type Type = M::Dst;
+    type PType = M::Dst;
 
     open spec fn requires(&self) -> bool {
         self.inner.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         match M::spec_rev_apply(v) {
             Ok(v) => self.inner.wf(v),
             Err(_) => false,
         }
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         match self.inner.spec_parse(s) {
             Some((n, v)) => match M::spec_apply(v) {
                 Ok(v) => Some((n, v)),
@@ -435,7 +436,7 @@ impl<Inner, M> SpecCombinator for TryMap<Inner, M> where
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         match M::spec_rev_apply(v) {
             Ok(v) => self.inner.spec_serialize(v),
             Err(_) => Seq::empty(),  // won't happen when `self.wf(v)`
@@ -445,9 +446,9 @@ impl<Inner, M> SpecCombinator for TryMap<Inner, M> where
 
 impl<Inner, M> SecureSpecCombinator for TryMap<Inner, M> where
     Inner: SecureSpecCombinator,
-    M: SpecPartialIsoProof<Src = Inner::Type>,
-    Inner::Type: SpecTryFrom<M::Dst>,
-    M::Dst: SpecTryFrom<Inner::Type>,
+    M: SpecPartialIsoProof<Src = Inner::PType>,
+    Inner::PType: SpecTryFrom<M::Dst>,
+    M::Dst: SpecTryFrom<Inner::PType>,
  {
     open spec fn is_prefix_secure() -> bool {
         Inner::is_prefix_secure()
@@ -457,7 +458,7 @@ impl<Inner, M> SecureSpecCombinator for TryMap<Inner, M> where
         self.inner.is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         if let Ok(v_) = M::spec_rev_apply(v) {
             M::spec_iso_rev(v);
             self.inner.theorem_serialize_parse_roundtrip(v_);
@@ -519,21 +520,22 @@ impl<PType: View, SType: View<V = <PType as View>::V>, GType: View> View for PSO
     }
 }
 
-impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
+impl<'x, I, O, S, Inner, M> Combinator<'x, I, O, S> for TryMap<Inner, M> where
     I: VestInput,
-    O: VestOutput<I>,
-    Inner: Combinator<'x, I, O>,
-    Inner::V: SecureSpecCombinator<Type = <Inner::Type as View>::V>,
-    M: PartialIso<'x, Src = Inner::Type, RefSrc = Inner::SType>,
-    M::Dst: TryFrom<Inner::Type> + View,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Inner: Combinator<'x, I, O, S>,
+    Inner::V: SecureSpecCombinator<PType = <Inner::PType as View>::V>,
+    M: PartialIso<'x, Src = Inner::PType, RefSrc = Inner::SType>,
+    M::Dst: TryFrom<Inner::PType> + View,
     Inner::SType: TryFrom<&'x M::Dst> + View,
-    M::V: SpecPartialIsoProof<Src = <Inner::Type as View>::V, Dst = <M::Dst as View>::V>,
-    <Inner::Type as View>::V: SpecTryFrom<<M::Dst as View>::V>,
-    <M::Dst as View>::V: SpecTryFrom<<Inner::Type as View>::V>,
+    M::V: SpecPartialIsoProof<Src = <Inner::PType as View>::V, Dst = <M::Dst as View>::V>,
+    <Inner::PType as View>::V: SpecTryFrom<<M::Dst as View>::V>,
+    <M::Dst as View>::V: SpecTryFrom<<Inner::PType as View>::V>,
     <Inner::SType as TryFrom<&'x M::Dst>>::Error: std::fmt::Debug,
     // ref OwnedDst -> Dst
  {
-    type Type = M::Dst;
+    type PType = M::Dst;
 
     type SType = &'x M::Dst;
 
@@ -547,7 +549,7 @@ impl<'x, I, O, Inner, M> Combinator<'x, I, O> for TryMap<Inner, M> where
         self.inner.ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         match self.inner.parse(s) {
             Err(e) => Err(e),
             Ok((n, v)) => match M::apply(v) {
@@ -614,33 +616,33 @@ impl<Inner: View, P: View> View for Refined<Inner, P> where  {
 
 impl<Inner, P> SpecCombinator for Refined<Inner, P> where
     Inner: SpecCombinator,
-    P: SpecPred<Inner::Type>,
+    P: SpecPred<Inner::PType>,
  {
-    type Type = Inner::Type;
+    type PType = Inner::PType;
 
     open spec fn requires(&self) -> bool {
         self.inner.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         self.inner.wf(v) && self.predicate.spec_apply(&v)
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         match self.inner.spec_parse(s) {
             Some((n, v)) if self.predicate.spec_apply(&v) => Some((n, v)),
             _ => None,
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         self.inner.spec_serialize(v)
     }
 }
 
 impl<Inner, P> SecureSpecCombinator for Refined<Inner, P> where
     Inner: SecureSpecCombinator,
-    P: SpecPred<Inner::Type>,
+    P: SpecPred<Inner::PType>,
  {
     open spec fn is_prefix_secure() -> bool {
         Inner::is_prefix_secure()
@@ -650,7 +652,7 @@ impl<Inner, P> SecureSpecCombinator for Refined<Inner, P> where
         self.inner.is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         self.inner.theorem_serialize_parse_roundtrip(v);
     }
 
@@ -674,16 +676,17 @@ impl<Inner, P> SecureSpecCombinator for Refined<Inner, P> where
     }
 }
 
-impl<'x, I, O, Inner, P> Combinator<'x, I, O> for Refined<Inner, P> where
+impl<'x, I, O, S, Inner, P> Combinator<'x, I, O, S> for Refined<Inner, P> where
     I: VestInput,
-    O: VestOutput<I>,
-    Inner: Combinator<'x, I, O, SType = &'x <Inner as Combinator<'x, I, O>>::Type>,
-    Inner::V: SecureSpecCombinator<Type = <Inner::Type as View>::V>,
-    P: Pred<Inner::Type>,
-    P::V: SpecPred<<Inner::Type as View>::V>,
-    Inner::Type: 'x,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Inner: Combinator<'x, I, O, S, SType = &'x <Inner as Combinator<'x, I, O, S>>::PType>,
+    Inner::V: SecureSpecCombinator<PType = <Inner::PType as View>::V>,
+    P: Pred<Inner::PType>,
+    P::V: SpecPred<<Inner::PType as View>::V>,
+    Inner::PType: 'x,
  {
-    type Type = Inner::Type;
+    type PType = Inner::PType;
 
     type SType = Inner::SType;
 
@@ -697,7 +700,7 @@ impl<'x, I, O, Inner, P> Combinator<'x, I, O> for Refined<Inner, P> where
         self.inner.ex_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
         match self.inner.parse(s) {
             Ok((n, v)) => if self.predicate.apply(&v) {
                 Ok((n, v))
@@ -715,7 +718,7 @@ impl<'x, I, O, Inner, P> Combinator<'x, I, O> for Refined<Inner, P> where
 
     fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
         match self.inner.generate(g) {
-            Ok((n, v)) => if self.predicate.apply(&v) {
+            Ok((n, v)) => if self.predicate.apply(CompleteRef::own_to_ref(&v)) {
                 Ok((n, v))
             } else {
                 Err(GenerateError::Generic)
@@ -742,19 +745,19 @@ impl<Inner: View> View for Cond<Inner> {
 }
 
 impl<Inner: SpecCombinator> SpecCombinator for Cond<Inner> {
-    type Type = Inner::Type;
+    type PType = Inner::PType;
 
     open spec fn requires(&self) -> bool {
         self.inner.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         &&& self.inner.wf(v)
         // call `serializer` only if `cond` is true
         &&& self.cond
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if self.cond {
             self.inner.spec_parse(s)
         } else {
@@ -762,13 +765,13 @@ impl<Inner: SpecCombinator> SpecCombinator for Cond<Inner> {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         self.inner.spec_serialize(v)
     }
 }
 
 impl<Inner: SecureSpecCombinator> SecureSpecCombinator for Cond<Inner> {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         self.inner.theorem_serialize_parse_roundtrip(v);
     }
 
@@ -803,10 +806,16 @@ impl<Inner: SecureSpecCombinator> SecureSpecCombinator for Cond<Inner> {
     }
 }
 
-impl<'x, I: VestInput, O: VestOutput<I>, Inner: Combinator<'x, I, O>> Combinator<'x, I, O> for Cond<
+impl<'x, I, O, S, Inner: Combinator<'x, I, O, S>> Combinator<'x, I, O, S> for Cond<
     Inner,
-> where Inner::V: SecureSpecCombinator<Type = <Inner::Type as View>::V> {
-    type Type = Inner::Type;
+> where 
+    I: VestInput,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Inner::V: SecureSpecCombinator<PType = <Inner::PType as View>::V>,
+    
+{
+    type PType = Inner::PType;
 
     type SType = Inner::SType;
 
@@ -820,7 +829,7 @@ impl<'x, I: VestInput, O: VestOutput<I>, Inner: Combinator<'x, I, O>> Combinator
         self.inner.ex_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
         if self.cond {
             self.inner.parse(s)
         } else {
@@ -855,17 +864,17 @@ impl<Prev: View, Next: View> View for AndThen<Prev, Next> {
 }
 
 impl<Next: SpecCombinator> SpecCombinator for AndThen<Variable, Next> {
-    type Type = Next::Type;
+    type PType = Next::PType;
 
     open spec fn requires(&self) -> bool {
         self.0.requires() && self.1.requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         self.1.wf(v) && self.0.wf(self.1.spec_serialize(v))
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, v1)) = self.0.spec_parse(s) {
             if let Some((m, v2)) = self.1.spec_parse(v1) {
                 // !! for security, can only proceed if the `Next` parser consumed the entire
@@ -883,14 +892,14 @@ impl<Next: SpecCombinator> SpecCombinator for AndThen<Variable, Next> {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         let buf1 = self.1.spec_serialize(v);
         self.0.spec_serialize(buf1)
     }
 }
 
 impl<Next: SecureSpecCombinator> SecureSpecCombinator for AndThen<Variable, Next> {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         let buf1 = self.1.spec_serialize(v);
         self.1.theorem_serialize_parse_roundtrip(v);
         self.0.theorem_serialize_parse_roundtrip(buf1);
@@ -933,14 +942,17 @@ impl<Next: SecureSpecCombinator> SecureSpecCombinator for AndThen<Variable, Next
     }
 }
 
-impl<'x, I, O, Next: Combinator<'x, I, O>> Combinator<'x, I, O> for AndThen<Variable, Next> where
+impl<'x, I, O, S, Next: Combinator<'x, I, O, S>> Combinator<'x, I, O, S> for AndThen<Variable, Next> where
     I: VestInput,
-    O: VestOutput<I>,
-    Next::V: SecureSpecCombinator<Type = <Next::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Next::V: SecureSpecCombinator<PType = <Next::PType as View>::V>,
  {
-    type Type = Next::Type;
+    type PType = Next::PType;
 
     type SType = Next::SType;
+
+    type GType = Next::GType;
 
     fn length(&self, _v: Self::SType) -> usize {
         self.0.0
@@ -950,8 +962,8 @@ impl<'x, I, O, Next: Combinator<'x, I, O>> Combinator<'x, I, O> for AndThen<Vari
         self.1.ex_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
-        let (n, v1) = <_ as Combinator<I, O>>::parse(&self.0, s)?;
+    fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
+        let (n, v1) = <_ as Combinator<'x, I, O, S>>::parse(&self.0, s)?;
         let (m, v2) = self.1.parse(v1)?;
         if m == n {
             Ok((n, v2))
@@ -965,6 +977,16 @@ impl<'x, I, O, Next: Combinator<'x, I, O>> Combinator<'x, I, O> for AndThen<Vari
         // will be an "no-op"
         let n = self.1.serialize(v, data, pos)?;
         Ok(n)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> Result<(usize, Self::GType), GenerateError> {
+        let (n, v1) = <_ as Combinator<'x, I, O, S>>::generate(self, g)?;
+        let (m, v2) = self.1.generate(g)?;
+        if m == n {
+            Ok((n, v2))
+        } else {
+            Err(GenerateError::Generic)
+        }
     }
 }
 

@@ -16,7 +16,7 @@ impl<C: View> View for RepeatN<C> {
 
 impl<C: SecureSpecCombinator> RepeatN<C> {
     /// Helper function for parsing [n] instances of [C] from [s].
-    pub closed spec fn spec_parse_helper(&self, s: Seq<u8>, n: usize) -> Option<(int, Seq<C::Type>)>
+    pub closed spec fn spec_parse_helper(&self, s: Seq<u8>, n: usize) -> Option<(int, Seq<C::PType>)>
         decreases n,
     {
         if n == 0 {
@@ -48,12 +48,12 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
 }
 
 impl<C: SecureSpecCombinator> RepeatN<C> {
-    spec fn wf_helper(&self, vs: Seq<C::Type>, n: usize) -> bool {
+    spec fn wf_helper(&self, vs: Seq<C::PType>, n: usize) -> bool {
         &&& vs.len() == n
         &&& forall|i: int| 0 <= i < vs.len() ==> #[trigger] self.0.wf(vs[i])
     }
 
-    proof fn theorem_serialize_parse_roundtrip_helper(&self, vs: Seq<C::Type>, n: usize)
+    proof fn theorem_serialize_parse_roundtrip_helper(&self, vs: Seq<C::PType>, n: usize)
         requires
             self.requires(),
         ensures
@@ -178,23 +178,23 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
 }
 
 impl<C: SecureSpecCombinator> SpecCombinator for RepeatN<C> {
-    type Type = Seq<C::Type>;
+    type PType = Seq<C::PType>;
 
     open spec fn requires(&self) -> bool {
         &&& self.0.requires()
         &&& C::is_prefix_secure()
     }
 
-    open spec fn wf(&self, vs: Self::Type) -> bool {
+    open spec fn wf(&self, vs: Self::PType) -> bool {
         &&& vs.len() == self.1
         &&& forall|i: int| 0 <= i < vs.len() ==> #[trigger] self.0.wf(vs[i])
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         self.spec_parse_helper(s, self.1)
     }
 
-    open spec fn spec_serialize(&self, vs: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, vs: Self::PType) -> Seq<u8> {
         vs.fold_left(Seq::empty(), |acc: Seq<u8>, v| acc + self.0.spec_serialize(v))
     }
 }
@@ -208,7 +208,7 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for RepeatN<C> {
         self.1 > 0 && self.0.is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, vs: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, vs: Self::PType) {
         if self.wf(vs) {
             self.theorem_serialize_parse_roundtrip_helper(vs, self.1)
         }
@@ -240,7 +240,7 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
         &self,
         s: Seq<u8>,
         n: usize,
-        res: Result<(usize, Seq<C::Type>), ParseError>,
+        res: Result<(usize, Seq<C::PType>), ParseError>,
     ) -> bool {
         &&& res matches Ok((k, v)) ==> self.spec_parse_helper(s, n) == Some((k as int, v))
         &&& self.spec_parse_helper(s, n) matches Some((k, v)) ==> res == Ok::<_, ParseError>(
@@ -250,7 +250,7 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
         &&& self.spec_parse_helper(s, n) is None ==> res is Err
     }
 
-    proof fn lemma_spec_serialize_max_length(&self, vs: Seq<C::Type>, n: usize)
+    proof fn lemma_spec_serialize_max_length(&self, vs: Seq<C::PType>, n: usize)
         requires
             self.requires(),
             self.wf_helper(vs, n),
@@ -265,7 +265,7 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
         decreases vs.len(),
     {
         if vs.len() == 0 {
-            assert(vs == Seq::<C::Type>::empty());
+            assert(vs == Seq::<C::PType>::empty());
         } else {
             let (v_, vs_) = (vs.last(), vs.drop_last());
             assert(vs_ =~= vs.take(vs_.len() as int));
@@ -309,7 +309,7 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
         }
     }
 
-    proof fn lemma_spec_serialize_max_length_2(&self, vs: Seq<C::Type>, n: usize)
+    proof fn lemma_spec_serialize_max_length_2(&self, vs: Seq<C::PType>, n: usize)
         requires
             self.requires(),
             self.wf_helper(vs, n),
@@ -326,18 +326,19 @@ impl<C: SecureSpecCombinator> RepeatN<C> {
     }
 }
 
-impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
+impl<'x, I, O, S, C> Combinator<'x, I, O, S> for RepeatN<C> where
     I: VestInput,
-    O: VestOutput<I>,
-    C: Combinator<'x, I, O, SType = &'x <C as Combinator<'x, I, O>>::Type>,
-    C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
-    <C as Combinator<'x, I, O>>::Type: 'x,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    C: Combinator<'x, I, O, S, SType = &'x <C as Combinator<'x, I, O, S>>::PType>,
+    C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
+    <C as Combinator<'x, I, O, S>>::PType: 'x,
  {
-    type Type = RepeatResult<C::Type>;
+    type PType = RepeatResult<C::PType>;
 
-    type SType = &'x RepeatResult<C::Type>;
+    type SType = &'x [C::SType];
 
-    type GType = RepeatResult<C::Type>;
+    type GType = RepeatResult<C::PType>;
 
     fn length(&self, vs: Self::SType) -> usize {
         let mut len = 0;
@@ -345,7 +346,7 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
             self@.lemma_spec_serialize_max_length(vs@, self.1);
             self@.lemma_spec_serialize_max_length_2(vs@, self.1);
         }
-        for i in 0..vs.0.len()
+        for i in 0..vs.len()
             invariant
                 0 <= i <= vs.0.len(),
                 self@.wf(vs@),
@@ -362,7 +363,7 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
                 len == self@.spec_serialize(vs@.take(i as int)).len(),
             decreases vs.0.len() - i,
         {
-            let v = &vs.0[i];
+            let v = &vs[i];
             assert(v@ == vs@[i as int]);
             assert(vs@.take((i + 1) as int).drop_last() == vs@.take(i as int));
             len += self.0.length(v);
@@ -375,7 +376,7 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
         self.0.ex_requires()
     }
 
-    fn parse(&self, input: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, input: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         let (mut s, mut len, mut vs) = (input, 0usize, Vec::new());
         assert(RepeatResult(vs)@ =~= seq![]);
 
@@ -419,7 +420,7 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
         let old_pos = pos;
         assert(data@ == seq_splice(old(data)@, pos, Seq::<u8>::empty()));
         let ghost _vs = vs@;
-        for i in 0..vs.0.len()
+        for i in 0..vs.len()
             invariant
                 data@.len() == old_data.len(),
                 pos <= data@.len() <= usize::MAX,
@@ -430,7 +431,7 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for RepeatN<C> where
                 (pos - old_pos) == self@.spec_serialize(_vs.take(i as int)).len(),
                 data@ == seq_splice(old_data, old_pos, self@.spec_serialize(_vs.take(i as int))),
         {
-            let v = &vs.0[i];
+            let v = &vs[i];
             assert(v@ == _vs[i as int]);
             assert(_vs.take((i + 1) as int).drop_last() == _vs.take(i as int));  // <-- this is the key
             let l = self.0.serialize(v, data, pos)?;
@@ -528,14 +529,14 @@ impl<T: View> View for RepeatResult<T> {
 
 impl<C: SecureSpecCombinator> Repeat<C> {
     #[verusfmt::skip]
-    proof fn lemma_serialize_add(&self, v: C::Type, vs: Seq<C::Type>)
+    proof fn lemma_serialize_add(&self, v: C::PType, vs: Seq<C::PType>)
         ensures
             self.spec_serialize(seq![v] + vs) == self.0.spec_serialize(v) + self.spec_serialize(vs)
         decreases vs.len(),
     {
         if vs.len() == 0 {
-            assert(vs == Seq::<C::Type>::empty());
-            assert(seq![v].drop_last() == Seq::<C::Type>::empty());
+            assert(vs == Seq::<C::PType>::empty());
+            assert(seq![v].drop_last() == Seq::<C::PType>::empty());
         } else {
             let vs_ = vs.drop_last();
             let v_ = vs.last();
@@ -556,7 +557,7 @@ impl<C: SecureSpecCombinator> Repeat<C> {
 }
 
 impl<C: SecureSpecCombinator> SpecCombinator for Repeat<C> {
-    type Type = Seq<C::Type>;
+    type PType = Seq<C::PType>;
 
     open spec fn requires(&self) -> bool {
         &&& self.0.requires()
@@ -564,11 +565,11 @@ impl<C: SecureSpecCombinator> SpecCombinator for Repeat<C> {
         &&& self.0.is_productive()
     }
 
-    open spec fn wf(&self, vs: Self::Type) -> bool {
+    open spec fn wf(&self, vs: Self::PType) -> bool {
         forall|i: int| 0 <= i < vs.len() ==> #[trigger] self.0.wf(vs[i])
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)>
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)>
         decreases s.len(),
     {
         if s.len() == 0 {
@@ -588,7 +589,7 @@ impl<C: SecureSpecCombinator> SpecCombinator for Repeat<C> {
         }
     }
 
-    open spec fn spec_serialize(&self, vs: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, vs: Self::PType) -> Seq<u8> {
         RepeatN(self.0, vs.len() as usize).spec_serialize(vs)
     }
 }
@@ -602,12 +603,12 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Repeat<C> {
         false
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, vs: Self::Type)
+    proof fn theorem_serialize_parse_roundtrip(&self, vs: Self::PType)
         decreases vs.len(),
     {
         if self.wf(vs) {
             if vs.len() == 0 {
-                assert(vs == <Seq<C::Type>>::empty());
+                assert(vs == <Seq<C::PType>>::empty());
             } else {
                 let (v_, vs_) = (vs.first(), vs.drop_first());
                 self.lemma_serialize_add(v_, vs_);  // (0). "re-order" the I.H.
@@ -665,26 +666,29 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Repeat<C> {
     }
 }
 
-impl<I, O, C, 'x> Combinator<'x, I, O> for Repeat<C> where
+impl<'x, I, O, S, C> Combinator<'x, I, O, S> for Repeat<C> where
     I: VestInput,
-    O: VestOutput<I>,
-    C: Combinator<'x, I, O, SType = &'x <C as Combinator<'x, I, O>>::Type>,
-    C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
-    <C as Combinator<'x, I, O>>::Type: 'x,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    C: Combinator<'x, I, O, S, SType = &'x <C as Combinator<'x, I, O, S>>::PType>,
+    C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
+    <C as Combinator<'x, I, O, S>>::PType: 'x,
  {
-    type Type = RepeatResult<C::Type>;
+    type PType = RepeatResult<C::PType>;
 
-    type SType = &'x RepeatResult<C::Type>;
+    type SType = &'x [C::SType];
+
+    type GType = RepeatResult<C::PType>;
 
     fn length(&self, vs: Self::SType) -> usize {
-        RepeatN(&self.0, vs.0.len()).length(vs)
+        RepeatN(&self.0, vs.len()).length(vs)
     }
 
     open spec fn ex_requires(&self) -> bool {
         self.0.ex_requires()
     }
 
-    fn parse(&self, input: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, input: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         let mut vs = Vec::new();
         let mut len: usize = 0;
 
@@ -725,7 +729,44 @@ impl<I, O, C, 'x> Combinator<'x, I, O> for Repeat<C> where
         usize,
         SerializeError,
     >) {
-        RepeatN(&self.0, vs.0.len()).serialize(vs, data, pos)
+        RepeatN(&self.0, vs.len()).serialize(vs, data, pos)
+    }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        let mut vs = Vec::new();
+        let mut len: usize = 0;
+
+        assert(input@.take(input@.len() as int) == input@);
+
+        while len < input.len()
+            invariant
+                0 <= len <= input@.len(),
+                self.ex_requires(),
+                self@.requires(),
+                self@.spec_parse(input@.skip(len as int)) matches Some((_, rest)) ==> {
+                    &&& self@.spec_parse(input@) matches Some((_, correct_vs))
+                    &&& RepeatResult(vs)@ + rest =~= correct_vs
+                },
+                len < input@.len() ==> (self@.spec_parse(input@.skip(len as int)) is None
+                    ==> self@.spec_parse(input@) is None),
+            decreases input@.len() - len,
+        {
+            let (n, v) = self.0.parse(input.subrange(len, input.len()))?;
+
+            assert(0 < n <= input@.skip(len as int).len()) by {
+                self.0@.lemma_parse_productive(input@.skip(len as int));
+                self.0@.lemma_parse_length(input@.skip(len as int));
+            }
+
+            let ghost prev_len = len;
+
+            vs.push(v);
+            len += n;
+
+            assert(input@.skip(prev_len as int).skip(n as int) == input@.skip(len as int));
+        }
+
+        Ok((input.len(), RepeatResult(vs)))
     }
 }
 

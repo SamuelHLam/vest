@@ -55,7 +55,7 @@ impl SecureSpecCombinator for Fail {
     }
 }
 
-impl<'x, I: VestInput, O: VestOutput<I>> Combinator<'x, I, O> for Fail {
+impl<I: VestInput, O: VestOutput<I>> Combinator<'x, I, O, S> for Fail {
     type PType = ();
 
     type SType = ();

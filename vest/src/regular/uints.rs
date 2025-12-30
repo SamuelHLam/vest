@@ -117,7 +117,7 @@ macro_rules! impl_combinator_for_le_uint_type {
     ($combinator:ty, $int_type:ty) => {
         ::vstd::prelude::verus! {
             impl SpecCombinator for $combinator {
-                type Type = $int_type;
+                type PType = $int_type;
 
                 open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, $int_type)> {
                     if s.len() >= size_of::<$int_type>() {
@@ -167,10 +167,10 @@ macro_rules! impl_combinator_for_le_uint_type {
                 }
             }
 
-            impl<'x, I: VestPublicInput, O: VestPublicOutput<I>> Combinator<'x, I, O> for $combinator {
-                type Type = $int_type;
+            impl<'x, I: VestPublicInput, O: VestPublicOutput<I>, S> Combinator<'x, I, O, S> for $combinator {
+                type PType = $int_type;
 
-                type SType = &'x $int_type;
+                type SType = $int_type;
 
                 type GType = $int_type;
 
@@ -224,7 +224,7 @@ macro_rules! impl_combinator_for_be_uint_type {
     ($combinator:ty, $int_type:ty) => {
         ::vstd::prelude::verus! {
             impl SpecCombinator for $combinator {
-                type Type = $int_type;
+                type PType = $int_type;
 
                 open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, $int_type)> {
                     if s.len() >= size_of::<$int_type>() {
@@ -274,10 +274,10 @@ macro_rules! impl_combinator_for_be_uint_type {
                 }
             }
 
-            impl<'x, I: VestPublicInput, O: VestPublicOutput<I>> Combinator<'x, I, O> for $combinator {
-                type Type = $int_type;
+            impl<'x, I: VestPublicInput, O: VestPublicOutput<I>, S> Combinator<'x, I, O, S> for $combinator {
+                type PType = $int_type;
 
-                type SType = &'x $int_type;
+                type SType = $int_type;
 
                 type GType = $int_type;
 
@@ -417,7 +417,7 @@ pub trait FromToBytes where Self: ViewReflex + std::marker::Sized + Copy {
     ;
 
     /// Converts an integer to a sequence of bytes in little-endian byte order.
-    fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_le_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
 
@@ -438,7 +438,7 @@ pub trait FromToBytes where Self: ViewReflex + std::marker::Sized + Copy {
     ;
 
     /// Converts an integer to a sequence of bytes in big-endian byte order.
-    fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_be_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
 
@@ -502,7 +502,7 @@ impl FromToBytes for u8 {
         *slice_index_get(s, 0)
     }
 
-    fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_le_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -517,7 +517,7 @@ impl FromToBytes for u8 {
         *slice_index_get(s, 0)
     }
 
-    fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_be_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -601,7 +601,7 @@ impl FromToBytes for u16 {
     }
 
     #[verifier::external_body]
-    fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_le_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -619,7 +619,7 @@ impl FromToBytes for u16 {
     }
 
     #[verifier::external_body]
-    fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_be_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -727,7 +727,7 @@ impl FromToBytes for u32 {
     }
 
     #[verifier::external_body]
-    fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_le_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -747,7 +747,7 @@ impl FromToBytes for u32 {
     }
 
     #[verifier::external_body]
-    fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_be_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -891,7 +891,7 @@ impl FromToBytes for u64 {
     }
 
     #[verifier::external_body]
-    fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_le_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -915,7 +915,7 @@ impl FromToBytes for u64 {
     }
 
     #[verifier::external_body]
-    fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
+    fn ex_to_be_bytes<'x, I, O, S>(&self, s: &mut O, pos: usize) where
         I: VestPublicInput,
         O: VestPublicOutput<I>,
      {
@@ -1044,7 +1044,7 @@ impl View for U24Le {
 }
 
 impl SpecCombinator for U24Le {
-    type Type = u24;
+    type PType = u24;
 
     // To parse a u24 in little-endian byte order, we simply reverse the 3 bytes parsed by the
     // `Fixed<3>` combinator.
@@ -1104,7 +1104,7 @@ impl SecureSpecCombinator for U24Le {
 }
 
 impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Le {
-    type Type = u24;
+    type PType = u24;
 
     type SType = &'x u24;
 
@@ -1149,7 +1149,7 @@ impl View for U24Be {
 }
 
 impl SpecCombinator for U24Be {
-    type Type = u24;
+    type PType = u24;
 
     open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, u24)> {
         match Fixed::<3>.spec_parse(s) {
@@ -1214,7 +1214,7 @@ proof fn bytes_eq_view_implies_eq<const N: usize>(a: [u8; N], b: [u8; N])
 }
 
 impl<'x> Combinator<'x, &[u8], Vec<u8>> for U24Be {
-    type Type = u24;
+    type PType = u24;
 
     type SType = &'x u24;
 

@@ -26,10 +26,10 @@ pub struct GenSt {
 /// trait.
 pub trait SpecCombinator {
     /// The view of [`Combinator::Result`].
-    type Type;
+    type PType;
 
     /// Well-formedness of the format [`Self::type`] (e.g., refinements on the type).
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         true
     }
 
@@ -47,10 +47,10 @@ pub trait SpecCombinator {
     }
 
     /// The specification of [`Combinator::parse`].
-    spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)>;
+    spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)>;
 
     /// The specification of [`Combinator::serialize`].
-    spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8>;
+    spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8>;
 }
 
 /// Theorems and lemmas that must be proven for a combinator to be considered correct and secure.
@@ -70,7 +70,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
     /// 3. correctness of parsing: given a correct serializer that produces some byte sequence from
     ///   a value, the corresponding parser should be able to parse the byte sequence back to the
     ///   same value (can lead to format-confusion attacks if not satisfied).
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type)
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType)
         requires
             self.requires(),
         ensures
@@ -80,7 +80,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
     ;
 
     /// Followed from `theorem_serialize_parse_roundtrip`
-    proof fn corollary_parse_surjective(&self, v: Self::Type)
+    proof fn corollary_parse_surjective(&self, v: Self::PType)
         requires
             self.requires(),
             self.wf(v),
@@ -91,7 +91,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
     }
 
     /// Followed from `theorem_serialize_parse_roundtrip`
-    proof fn corollary_serialize_injective(&self, v1: Self::Type, v2: Self::Type)
+    proof fn corollary_serialize_injective(&self, v1: Self::PType, v2: Self::PType)
         requires
             self.requires(),
         ensures
@@ -103,7 +103,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
     }
 
     /// Followed from `theorem_serialize_parse_roundtrip`
-    proof fn corollary_serialize_injective_contraposition(&self, v1: Self::Type, v2: Self::Type)
+    proof fn corollary_serialize_injective_contraposition(&self, v1: Self::PType, v2: Self::PType)
         requires
             self.requires(),
         ensures
@@ -186,7 +186,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
 
     /// This lemma is used in the proof of the roundtrip properties for optional and unbounded
     /// repeating combinators.
-    proof fn lemma_serialize_productive(&self, v: Self::Type)
+    proof fn lemma_serialize_productive(&self, v: Self::PType)
         requires
             self.requires(),
             self.wf(v),
@@ -198,20 +198,20 @@ pub trait SecureSpecCombinator: SpecCombinator {
     }
 }
 
-pub trait GtoPType<T>
+pub trait CompleteRef<T>
 //where
  //   T: ?Sized,
 {
     // reference not used because lifetime must be specified in implementation
-    fn g_ref(&self) -> T;
+    fn own_to_ref(&self) -> T;
 }
 
-pub trait PtoSType<T>
-where
-   T: ?Sized,
+pub trait CompleteOwn<T>
+// where
+//    T: ?Sized,
 {
     // reference not used because lifetime must be specified in implementation
-    fn p_ref(&self) -> T;
+    fn ref_to_own(&self) -> T;
 }
 
 // impl<'x, 'y: 'x> VestRef<&'x u8> for &'y u8 {
@@ -228,16 +228,16 @@ macro_rules! ref_for_uint {
     ($int_type:ty) => {
         ::vstd::prelude::verus! {
 
-            impl GtoPType<$int_type> for $int_type {
+            impl CompleteRef<$int_type> for $int_type {
 
-                fn g_ref(&self) -> $int_type {
+                fn own_to_ref(&self) -> $int_type {
                     *self
                 }
             }
 
-            impl PtoSType<$int_type> for $int_type {
+            impl CompleteOwn<$int_type> for $int_type {
 
-                fn p_ref(&self) -> $int_type {
+                fn ref_to_own(&self) -> $int_type {
                     *self
                 }
             }
@@ -250,16 +250,16 @@ macro_rules! ref_for_uint_ref {
     ($int_type:ty) => {
         ::vstd::prelude::verus! {
 
-            impl<'x> GtoPType<$int_type> for &'x $int_type {
+            impl<'x> CompleteRef<$int_type> for &'x $int_type {
 
-                fn g_ref(&self) -> $int_type {
+                fn own_to_ref(&self) -> $int_type {
                     **self
                 }
             }
 
-            impl<'x> PtoSType<$int_type> for &'x $int_type {
+            impl<'x> CompleteOwn<$int_type> for &'x $int_type {
 
-                fn p_ref(&self) -> $int_type {
+                fn ref_to_own(&self) -> $int_type {
                     
                     **self
                 }
@@ -279,70 +279,56 @@ ref_for_uint_ref!(u32);
 ref_for_uint_ref!(u64);
 
 // 'y must outlive 'x because Vec must outlive slice
-// Vec<T> -> &[T]
-impl<'x, 'y: 'x, T> GtoPType<&'x [T]> for &'y Vec<T> {
-    fn g_ref(&self) -> &'x [T] {
-        self.as_slice()
+// Vec<Vec<T>> -> &[&[T]]
+impl<A:CompleteRef<B>, B> CompleteRef<Vec<B>> for &Vec<A> {
+    fn own_to_ref(&self) -> Vec<B> {
+        self.iter().map(|x| x.own_to_ref()).collect::<Vec<_>>()
     }
 }
 
 // Vec<T> -> &[T]
-impl<'x, 'y: 'x, T> PtoSType<&'x [T]> for &'y Vec<T> {
-    fn p_ref(&self) -> &'x [T] {
+impl<'x, 'y: 'x, T> CompleteRef<&'x [T]> for &'y Vec<T> {
+    fn own_to_ref(&self) -> &'x [T] {
         self.as_slice()
     }
 }
 
 // &[T] -> &[T]
-impl<'x, 'y: 'x, T> PtoSType<&'x [T]> for &'y [T] {
-    fn p_ref(&self) -> &'x [T] {
+impl<'x, 'y: 'x, T> CompleteRef<&'x [T]> for &'y [T] {
+    fn own_to_ref(&self) -> &'x [T] {
         self
     }
 }
 
-// Vec<Vec<T>> -> Vec<&[T]>
-impl<A:GtoPType<B> + Clone, B> GtoPType<Vec<B>> for &Vec<A> {
-    fn g_ref(&self) -> Vec<B> {
-        self.iter().map(|x| x.clone().g_ref()).collect::<Vec<_>>()
-    }
-}
-
 // Pair(A,B) -> Pair(ref(A), ref(B))
-
-impl<A:GtoPType<C>, B:GtoPType<D>, C, D> GtoPType<(C, D)> for (A, B) {
-    fn g_ref(&self) -> (C,D) {
-        (self.0.g_ref(), self.1.g_ref())
-    }
-}
-
-// Pair(A,B) -> Pair(ref(A), ref(B))
-impl<A:PtoSType<C>, B:PtoSType<D>, C, D> PtoSType<(C, D)> for (A, B) {
-    fn p_ref(&self) -> (C,D) {
-        (self.0.p_ref(), self.1.p_ref())
+impl<A:CompleteRef<C>, B:CompleteRef<D>, C, D> CompleteRef<(C, D)> for (A, B) {
+    fn own_to_ref(&self) -> (C,D) {
+        (self.0.own_to_ref(), self.1.own_to_ref())
     }
 }
 
 
 /// Implementation for parser and serializer combinators. A combinator's view must be a
 /// [`SecureSpecCombinator`].
-pub trait Combinator<'x, I, O>: View where
+pub trait Combinator<'x, I, O, S>: View where
     I: VestInput,
-    O: VestOutput<I>,
-    Self::V: SecureSpecCombinator<Type = <Self::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Self::V: SecureSpecCombinator<PType = <Self::PType as View>::V>,
  {
 
     // This should be an owned type (e.g., &[u8] -> Vec<u8>, (&[u8], u8) -> (Vec<u8>, u8))
     type GType: View;
 
     /// The result type of parsing
-    type Type: View<V = <Self::GType as View>::V> + GtoPType<Self::GType>;
+    type PType: View<V = <Self::GType as View>::V> + CompleteRef<Self::GType>;
 
-    /// The input type of serialization, often a reference to [`Self::Type`].
+    /// The input type of serialization, often a reference to [`Self::PType`].
     /// For "structural" formats though (e.g., [`crate::regular::sequence::Pair`] and [`crate::regular::variant::Choice`]),
     /// this is the tuple/sum of the corresponding [`Combinator::SType`] types.
-    type SType: View<V = <Self::GType as View>::V> + PtoSType<Self::Type>;
+    type SType: View<V = <Self::GType as View>::V> + CompleteRef<Self::PType>;
 
-    //type GType: View<V = <Self::Type as View>::V>;
+    //type GType: View<V = <Self::PType as View>::V>;
 
     /// The length of the output buffer.
     /// This can be used to optimize serialization by pre-allocating the buffer.
@@ -368,7 +354,7 @@ pub trait Combinator<'x, I, O>: View where
     /// The parsing function.
     /// To enable "zero-copy" parsing, implementations of `parse` should not
     /// consume/deepcopy the input buffer `I`, but rather return a slice of the
-    /// input buffer for `Self::Type` whenever possible.
+    /// input buffer for `Self::PType` whenever possible.
     /// See [`crate::buf_traits::VestInput`] and [`crate::buf_traits::VestPublicInput`] for
     /// more details.
     ///
@@ -380,7 +366,7 @@ pub trait Combinator<'x, I, O>: View where
     /// ## Post-conditions
     /// Essentially, the implementation of `parse` is functionally correct with respect to the
     /// specification `spec_parse` on both success and failure cases.
-    fn parse(&self, s: I) -> (res: PResult<Self::Type, ParseError>)
+    fn parse(&self, s: I) -> (res: PResult<Self::PType, ParseError>)
         requires
             self@.requires(),
             self.ex_requires(),
@@ -438,16 +424,16 @@ pub trait Combinator<'x, I, O>: View where
             //s@.len() <= usize::MAX,
     ;
 
-    // Relation between GType, Type, and SType
+    // Relation between GType, PType, and SType
     
 
     
 }
 
 impl<C: SpecCombinator> SpecCombinator for &C {
-    type Type = C::Type;
+    type PType = C::PType;
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         (*self).wf(v)
     }
 
@@ -455,11 +441,11 @@ impl<C: SpecCombinator> SpecCombinator for &C {
         (*self).requires()
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         (*self).spec_parse(s)
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         (*self).spec_serialize(v)
     }
 }
@@ -473,7 +459,7 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for &C {
         (*self).is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         (*self).theorem_serialize_parse_roundtrip(v)
     }
 
@@ -494,12 +480,13 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for &C {
     }
 }
 
-impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for &C where
+impl<'x, I, O, S, C: Combinator<'x, I, O, S>> Combinator<'x, I, O, S> for &C where
     I: VestInput,
-    O: VestOutput<I>,
-    C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
  {
-    type Type = C::Type;
+    type PType = C::PType;
 
     type SType = C::SType;
 
@@ -514,7 +501,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for &C where
         (*self).ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         (*self).parse(s)
     }
 
@@ -531,9 +518,9 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for &C where
 }
 
 impl<C: SpecCombinator> SpecCombinator for Box<C> {
-    type Type = C::Type;
+    type PType = C::PType;
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         (**self).wf(v)
     }
 
@@ -541,11 +528,11 @@ impl<C: SpecCombinator> SpecCombinator for Box<C> {
         (**self).requires()
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         (**self).spec_parse(s)
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         (**self).spec_serialize(v)
     }
 }
@@ -559,7 +546,7 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Box<C> {
         (**self).is_productive()
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         (**self).theorem_serialize_parse_roundtrip(v)
     }
 
@@ -580,12 +567,13 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Box<C> {
     }
 }
 
-impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
+impl<'x, I, O, S, C: Combinator<'x, I, O, S>> Combinator<'x, I, O, S> for Box<C> where
     I: VestInput,
-    O: VestOutput<I>,
-    C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
  {
-    type Type = C::Type;
+    type PType = C::PType;
 
     type SType = C::SType;
 
@@ -599,7 +587,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
         (**self).ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         (**self).parse(s)
     }
 
@@ -632,16 +620,16 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // type parameters instead for both parsing and serialization, but that would require another
 // entire-codebase refactoring, which I think is not worth it at this point.
 //
-// #[verifier::reject_recursive_types(Type)]
-// pub struct SpecCombinatorFn<Type, const Prefix: u8> {
-//     pub parse: spec_fn(Seq<u8>) -> PResult<Type, ()>,
-//     pub serialize: spec_fn(Type) -> SResult<Seq<u8>, ()>,
+// #[verifier::reject_recursive_types(PType)]
+// pub struct SpecCombinatorFn<PType, const Prefix: u8> {
+//     pub parse: spec_fn(Seq<u8>) -> PResult<PType, ()>,
+//     pub serialize: spec_fn(PType) -> SResult<Seq<u8>, ()>,
 // }
 //
-// impl<Type, const Prefix: u8> SpecCombinatorFn<Type, Prefix> {
+// impl<PType, const Prefix: u8> SpecCombinatorFn<PType, Prefix> {
 //     pub open spec fn new(
-//         parse: spec_fn(Seq<u8>) -> PResult<Type, ()>,
-//         serialize: spec_fn(Type) -> SResult<Seq<u8>, ()>,
+//         parse: spec_fn(Seq<u8>) -> PResult<PType, ()>,
+//         serialize: spec_fn(PType) -> SResult<Seq<u8>, ()>,
 //     ) -> (o: Self)
 //         recommends
 //             forall|v| Self::theorem_serialize_parse_roundtrip(parse, serialize, v),
@@ -652,16 +640,16 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     }
 //
 //     pub open spec fn theorem_serialize_parse_roundtrip(
-//         parse: spec_fn(Seq<u8>) -> PResult<Type, ()>,
-//         serialize: spec_fn(Type) -> SResult<Seq<u8>, ()>,
-//         v: Type,
+//         parse: spec_fn(Seq<u8>) -> PResult<PType, ()>,
+//         serialize: spec_fn(PType) -> SResult<Seq<u8>, ()>,
+//         v: PType,
 //     ) -> bool {
 //         serialize(v) matches Ok(b) ==> parse(b) == Ok::<_, ()>((b.len() as usize, v))
 //     }
 //
 //     pub open spec fn theorem_parse_serialize_roundtrip(
-//         parse: spec_fn(Seq<u8>) -> Result<(usize, Type), ()>,
-//         serialize: spec_fn(Type) -> Result<Seq<u8>, ()>,
+//         parse: spec_fn(Seq<u8>) -> Result<(usize, PType), ()>,
+//         serialize: spec_fn(PType) -> Result<Seq<u8>, ()>,
 //         buf: Seq<u8>,
 //     ) -> bool {
 //         buf.len() <= usize::MAX ==> ( parse(buf) matches Ok((n, v)) ==> serialize(v) == Ok::<
@@ -671,7 +659,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     }
 //
 //     pub open spec fn lemma_prefix_secure(
-//         parse: spec_fn(Seq<u8>) -> Result<(usize, Type), ()>,
+//         parse: spec_fn(Seq<u8>) -> Result<(usize, PType), ()>,
 //         s1: Seq<u8>,
 //         s2: Seq<u8>,
 //     ) -> bool {
@@ -681,10 +669,10 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // }
 //
 //
-// impl<Type, const Prefix: u8> SpecCombinator for SpecCombinatorFn<Type, Prefix> {
-//     type Type = Type;
+// impl<PType, const Prefix: u8> SpecCombinator for SpecCombinatorFn<PType, Prefix> {
+//     type PType = PType;
 //
-//     open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+//     open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::PType), ()> {
 //         if let Ok((n, v)) = (self.parse)(s) {
 //             if n <= s.len() {
 //                 Ok((n, v))
@@ -696,7 +684,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //         }
 //     }
 //
-//     open spec fn spec_serialize(&self, v: Self::Type) -> Result<Seq<u8>, ()> {
+//     open spec fn spec_serialize(&self, v: Self::PType) -> Result<Seq<u8>, ()> {
 //         (self.serialize)(v)
 //     }
 //
@@ -704,12 +692,12 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     }
 // }
 //
-// impl<Type, const Prefix: u8> SecureSpecCombinator for SpecCombinatorFn<Type, Prefix> {
+// impl<PType, const Prefix: u8> SecureSpecCombinator for SpecCombinatorFn<PType, Prefix> {
 //     open spec fn is_prefix_secure() -> bool {
 //         Prefix == 1
 //     }
 //
-//     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+//     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 //         assume(Self::theorem_serialize_parse_roundtrip(self.parse, self.serialize, v));
 //     }
 //
@@ -722,7 +710,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     }
 // }
 //
-// pub struct CombinatorFn<I, O, R, P, S, const Prefix: u8> where
+// pub struct CombinatorFn<'x, I, O, S, R, P, S, const Prefix: u8> where
 //     I: VestInput,
 //     O: VestOutput<I>,
 //     R: View,
@@ -733,7 +721,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     pub serialize: S,
 //     pub spec_parse: Ghost<spec_fn(Seq<u8>) -> PResult<R::V, ()>>,
 //     pub spec_serialize: Ghost<spec_fn(R::V) -> SResult<Seq<u8>, ()>>,
-//     phantom: std::marker::PhantomData<(I, O)>,
+//     phantom: std::marker::PhantomData<('x, I, O, S)>,
 // }
 //
 // impl<'a, 'b, R, P, S, const Prefix: u8> View for CombinatorFn<'a, 'b, R, P, S, Prefix> where
@@ -757,7 +745,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 //     R: View,
 //     P: Fn(&'a [u8]) -> Result<(usize, R), ()>,
 //     S: Fn(R, &'b mut Vec<u8>, usize) -> Result<usize, ()>,
-//     Self::V: SecureSpecCombinator<Type = R::V>,
+//     Self::V: SecureSpecCombinator<PType = R::V>,
 //  {
 //     type Result<'c> = R;
 //
@@ -786,75 +774,75 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 } // verus!
 // ///////// Separating the parsing and serializing functions
 // ///////// Unsuccesful due to conflicting trait impls and Verus limitations (&mut support)
-// // pub trait Parser<I, O>
+// // pub trait Parser<'x, I, O, S>
 // // where
 // //     I: VestInput,
 // // {
-// //     type Type;
+// //     type PType;
 // //
-// //     fn parse_fn(&self, s: I) -> PResult<Self::Type, ParseError>;
+// //     fn parse_fn(&self, s: I) -> PResult<Self::PType, ParseError>;
 // // }
 // //
-// // pub trait Serializer<I, O>
+// // pub trait Serializer<'x, I, O, S>
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
 // // {
-// //     type Type;
+// //     type PType;
 // //
 // //     fn serialize_fn(
 // //         &self,
-// //         v: Self::Type,
+// //         v: Self::PType,
 // //         data: &mut O,
 // //         pos: usize,
 // //     ) -> SResult<usize, SerializeError>;
 // // }
 // //
-// // impl<I, O, Type, F> Parser<I, O> for F
+// // impl<'x, I, O, S, PType, F> Parser<'x, I, O, S> for F
 // // where
 // //     I: VestInput,
-// //     F: Fn(I) -> PResult<Type, ParseError>,
+// //     F: Fn(I) -> PResult<PType, ParseError>,
 // // {
-// //     type Type = Type;
+// //     type PType = PType;
 // //
-// //     fn parse_fn(&self, s: I) -> PResult<Self::Type, ParseError> {
+// //     fn parse_fn(&self, s: I) -> PResult<Self::PType, ParseError> {
 // //         self(s)
 // //     }
 // // }
 // //
-// // impl<I, O, Fst, Snd> Parser<I, O> for (Fst, Snd)
+// // impl<'x, I, O, S, Fst, Snd> Parser<'x, I, O, S> for (Fst, Snd)
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     Fst: Combinator<I, O>,
-// //     Snd: Combinator<I, O>,
-// //     Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
-// //     Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
+// //     Fst: Combinator<'x, I, O, S>,
+// //     Snd: Combinator<'x, I, O, S>,
+// //     Fst::V: SecureSpecCombinator<PType = <Fst::PType as View>::V>,
+// //     Snd::V: SecureSpecCombinator<PType = <Snd::PType as View>::V>,
 // // {
-// //     type Type = (Fst::Type, Snd::Type);
+// //     type PType = (Fst::PType, Snd::PType);
 // //
-// //     fn parse_fn(&self, s: I) -> PResult<Self::Type, ParseError> {
+// //     fn parse_fn(&self, s: I) -> PResult<Self::PType, ParseError> {
 // //         (&self.0, &self.1).parse(s)
 // //     }
 // // }
 // //
-// // impl<I: VestPublicInput, O: VestPublicOutput<I>> Parser<I, O> for crate::regular::uints::U8 {
-// //     type Type = u8;
+// // impl<I: VestPublicInput, O: VestPublicOutput<I>> Parser<'x, I, O, S> for crate::regular::uints::U8 {
+// //     type PType = u8;
 // //
-// //     fn parse_fn(&self, s: I) -> PResult<Self::Type, ParseError> {
-// //         <_ as Combinator<I, O>>::parse(self, s)
+// //     fn parse_fn(&self, s: I) -> PResult<Self::PType, ParseError> {
+// //         <_ as Combinator<'x, I, O, S>>::parse(self, s)
 // //     }
 // // }
 // //
-// // fn parse_pair_of_u8<I, O>(s: I) -> PResult<(u8, u8), ParseError>
+// // fn parse_pair_of_u8<'x, I, O, S>(s: I) -> PResult<(u8, u8), ParseError>
 // // where
 // //     I: VestPublicInput,
 // //     O: VestPublicOutput<I>,
 // // {
-// //     <_ as Parser<I, O>>::parse_fn(&(crate::regular::uints::U8, crate::regular::uints::U8), s)
+// //     <_ as Parser<'x, I, O, S>>::parse_fn(&(crate::regular::uints::U8, crate::regular::uints::U8), s)
 // // }
 // //
-// // fn test<I, O, P: Parser<I, O>>(p: P, s: I) -> PResult<P::Type, ParseError>
+// // fn test<'x, I, O, S, P: Parser<'x, I, O, S>>(p: P, s: I) -> PResult<P::PType, ParseError>
 // // where
 // //     I: VestPublicInput,
 // // {
@@ -865,58 +853,58 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //     let s = Vec::new();
 // //     let r = test::<_, Vec<u8>, _>(parse_pair_of_u8::<&[u8], Vec<u8>>, s.as_slice());
 // // }
-// // fn parse_pair<I, O, Fst, Snd>(
+// // fn parse_pair<'x, I, O, S, Fst, Snd>(
 // //     fst: Fst,
 // //     snd: Snd,
 // //     s: I,
-// // ) -> PResult<(Fst::Type, Snd::Type), ParseError>
+// // ) -> PResult<(Fst::PType, Snd::PType), ParseError>
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     Fst: Parser<I, O>,
-// //     Snd: Parser<I, O>,
+// //     Fst: Parser<'x, I, O, S>,
+// //     Snd: Parser<'x, I, O, S>,
 // // {
 // //     // (fst, snd).parse(s)
 // // }
-// // impl<I, O, C: Combinator<I, O>> Parser<I, O> for C
+// // impl<'x, I, O, S, C: Combinator<'x, I, O, S>> Parser<'x, I, O, S> for C
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
+// //     C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
 // // {
-// //     type Type = C::Type;
+// //     type PType = C::PType;
 // //
-// //     fn parse_fn(&self, s: I) -> PResult<Self::Type, ParseError> {
+// //     fn parse_fn(&self, s: I) -> PResult<Self::PType, ParseError> {
 // //         self.parse(s)
 // //     }
 // // }
-// // impl<I, O, C: Combinator<I, O>> Serializer<I, O> for C
+// // impl<'x, I, O, S, C: Combinator<'x, I, O, S>> Serializer<'x, I, O, S> for C
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
+// //     C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
 // // {
-// //     type Type = C::Type;
+// //     type PType = C::PType;
 // //
 // //     fn serialize_fn(
 // //         &self,
-// //         v: Self::Type,
+// //         v: Self::PType,
 // //         data: &mut O,
 // //         pos: usize,
 // //     ) -> SResult<usize, SerializeError> {
 // //         self.serialize(v, data, pos)
 // //     }
 // // }
-// // fn parse_pair<I, O, Fst, Snd>(
+// // fn parse_pair<'x, I, O, S, Fst, Snd>(
 // //     fst: &Fst,
 // //     snd: &Snd,
 // //     s: I,
-// // ) -> PResult<(Fst::Type, Snd::Type), ParseError>
+// // ) -> PResult<(Fst::PType, Snd::PType), ParseError>
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     Fst: Parser<I, Type = Fst::Type>,
-// //     Snd: Parser<I, Type = Snd::Type>,
+// //     Fst: Parser<I, PType = Fst::PType>,
+// //     Snd: Parser<I, PType = Snd::PType>,
 // // {
 // //     let (n, v1) = fst.parse(s.clone())?;
 // //     let s_ = s.subrange(n, s.len());
@@ -933,27 +921,27 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //
 // //     // spec fn view(&self) -> Self::V;
 // // }
-// // impl<I, O, C: Combinator<I, O>> Combinator<I, O>
+// // impl<'x, I, O, S, C: Combinator<'x, I, O, S>> Combinator<'x, I, O, S>
 // //     for Box<dyn crate::regular::depend::Continuation<(), Output = C>>
 // // where
 // //     I: VestInput,
 // //     O: VestOutput<I>,
-// //     C::V: SecureSpecCombinator<Type = <C::Type as View>::V>,
+// //     C::V: SecureSpecCombinator<PType = <C::PType as View>::V>,
 // // {
-// //     type Type = Box<C::Type>;
+// //     type PType = Box<C::PType>;
 // //
 // //     fn length(&self) -> Option<usize> {
 // //         None
 // //     }
 // //
-// //     fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+// //     fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
 // //         match self.apply(()).parse(s) {
 // //             Ok((n, v)) => Ok((n, Box::new(v))),
 // //             Err(e) => Err(e),
 // //         }
 // //     }
 // //
-// //     fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
+// //     fn serialize(&self, v: Self::PType, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
 // //         self.apply(()).serialize(*v, data, pos)
 // //     }
 // // }
@@ -993,22 +981,22 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //     type V = Self;
 // // }
 // // impl SpecCombinator for InstrCom {
-// //     type Type = InstrFmt;
+// //     type PType = InstrFmt;
 // // }
 // // impl SecureSpecCombinator for InstrCom {}
 // // impl SpecCombinator for AuxBlockCom {
-// //     type Type = AuxBlockFmt;
+// //     type PType = AuxBlockFmt;
 // // }
 // // impl SecureSpecCombinator for AuxBlockCom {}
 // //
 // // impl DisjointFrom<Refined<U8, TagPred<u8>>> for AuxBlockCom {}
 // //
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for InstrCom {
-// //     type Type = InstrFmt;
+// //     type PType = InstrFmt;
 // //     fn length(&self) -> Option<usize> {
 // //         <_ as Combinator<&[u8], Vec<u8>>>::length(&self.0)
 // //     }
-// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::Type), ParseError> {
+// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::PType), ParseError> {
 // //         match <_ as Combinator<&[u8], Vec<u8>>>::parse(&self.0, s) {
 // //             Ok((n, Either::Left(v))) => Ok((n, InstrFmt(Either::Left(v)))),
 // //             Ok((n, Either::Right(v))) => Ok((n, InstrFmt(Either::Right(v)))),
@@ -1017,7 +1005,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //     }
 // //     fn serialize(
 // //         &self,
-// //         v: Self::Type,
+// //         v: Self::PType,
 // //         data: &mut Vec<u8>,
 // //         pos: usize,
 // //     ) -> Result<usize, SerializeError> {
@@ -1026,11 +1014,11 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for AuxBlockCom {
-// //     type Type = AuxBlockFmt;
+// //     type PType = AuxBlockFmt;
 // //     fn length(&self) -> Option<usize> {
 // //         <_ as Combinator<&[u8], Vec<u8>>>::length(&self.0)
 // //     }
-// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::Type), ParseError> {
+// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::PType), ParseError> {
 // //         match <_ as Combinator<&[u8], Vec<u8>>>::parse(&self.0, s) {
 // //             Ok((n, (a, (b, c)))) => Ok((n, AuxBlockFmt((a, (b, c))))),
 // //             Err(e) => Err(e),
@@ -1038,7 +1026,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //     }
 // //     fn serialize(
 // //         &self,
-// //         v: Self::Type,
+// //         v: Self::PType,
 // //         data: &mut Vec<u8>,
 // //         pos: usize,
 // //     ) -> Result<usize, SerializeError> {
@@ -1222,9 +1210,9 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl SpecCombinator for LazyInstrCom {
-// //     type Type = SpecInstrFmt;
+// //     type PType = SpecInstrFmt;
 // //
-// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> PResult<Self::Type, ()> {
+// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> PResult<Self::PType, ()> {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.spec_parse(s),
 // //             None => Err(()),
@@ -1232,7 +1220,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         // Self::spec_thunk().spec_parse(s)
 // //     }
 // //
-// //     closed spec fn spec_serialize(&self, v: Self::Type) -> SResult<Seq<u8>, ()> {
+// //     closed spec fn spec_serialize(&self, v: Self::PType) -> SResult<Seq<u8>, ()> {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.spec_serialize(v),
 // //             None => Err(()),
@@ -1253,7 +1241,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         }
 // //     }
 // //
-// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.theorem_serialize_parse_roundtrip(v),
 // //             None => {}
@@ -1290,16 +1278,16 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl SpecCombinator for LazyAuxBlockCom {
-// //     type Type = SpecAuxBlockFmt;
+// //     type PType = SpecAuxBlockFmt;
 // //
-// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> PResult<Self::Type, ()> {
+// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> PResult<Self::PType, ()> {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.spec_parse(s),
 // //             None => Err(()),
 // //         }
 // //     }
 // //
-// //     closed spec fn spec_serialize(&self, v: Self::Type) -> SResult<Seq<u8>, ()> {
+// //     closed spec fn spec_serialize(&self, v: Self::PType) -> SResult<Seq<u8>, ()> {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.spec_serialize(v),
 // //             None => Err(()),
@@ -1319,7 +1307,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         }
 // //     }
 // //
-// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 // //         match self.spec_thunk() {
 // //             Some(c) => c.theorem_serialize_parse_roundtrip(v),
 // //             None => {}
@@ -1377,7 +1365,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for LazyInstrCom
 // // {
-// //     type Type = Box<InstrFmt>;
+// //     type PType = Box<InstrFmt>;
 // //
 // //     closed spec fn spec_length(&self) -> Option<usize> {
 // //         None
@@ -1391,7 +1379,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         forall |c: <Self as LazyCombinator>::Comb| c.parse_requires()
 // //     }
 // //
-// //     fn parse(&self, s: &[u8]) -> PResult<Self::Type, ParseError> {
+// //     fn parse(&self, s: &[u8]) -> PResult<Self::PType, ParseError> {
 // //         match self.thunk() {
 // //             Some(c) => match c.parse(s) {
 // //                 Ok((n, v)) => Ok((n, Box::new(v))),
@@ -1405,7 +1393,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         forall |c: <Self as LazyCombinator>::Comb| c.serialize_requires()
 // //     }
 // //
-// //     fn serialize(&self, v: Self::Type, data: &mut Vec<u8>, pos: usize) -> SResult<usize, SerializeError> {
+// //     fn serialize(&self, v: Self::PType, data: &mut Vec<u8>, pos: usize) -> SResult<usize, SerializeError> {
 // //         match self.thunk() {
 // //             Some(c) => c.serialize(*v, data, pos),
 // //             None => Err(SerializeError::Other("Ran out of fuels".to_string())),
@@ -1415,7 +1403,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for LazyAuxBlockCom
 // // {
-// //     type Type = Box<AuxBlockFmt>;
+// //     type PType = Box<AuxBlockFmt>;
 // //
 // //     closed spec fn spec_length(&self) -> Option<usize> {
 // //         None
@@ -1429,7 +1417,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         forall |c: <Self as LazyCombinator>::Comb| c.parse_requires()
 // //     }
 // //
-// //     fn parse(&self, s: &[u8]) -> PResult<Self::Type, ParseError> {
+// //     fn parse(&self, s: &[u8]) -> PResult<Self::PType, ParseError> {
 // //         match self.thunk() {
 // //             Some(c) => match c.parse(s) {
 // //                 Ok((n, v)) => Ok((n, Box::new(v))),
@@ -1443,7 +1431,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         forall |c: <Self as LazyCombinator>::Comb| c.serialize_requires()
 // //     }
 // //
-// //     fn serialize(&self, v: Self::Type, data: &mut Vec<u8>, pos: usize) -> SResult<usize, SerializeError> {
+// //     fn serialize(&self, v: Self::PType, data: &mut Vec<u8>, pos: usize) -> SResult<usize, SerializeError> {
 // //         match self.thunk() {
 // //             Some(c) => c.serialize(*v, data, pos),
 // //             None => Err(SerializeError::Other("Ran out of fuels".to_string())),
@@ -1453,13 +1441,13 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //
 // //
 // // // impl<T: SpecCombinator> SpecCombinator for spec_fn() -> T {
-// // //     type Type = T::Type;
+// // //     type PType = T::PType;
 // // //
-// // //     open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+// // //     open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::PType), ()> {
 // // //         self().spec_parse(s)
 // // //     }
 // // //
-// // //     open spec fn spec_serialize(&self, v: Self::Type) -> Result<Seq<u8>, ()> {
+// // //     open spec fn spec_serialize(&self, v: Self::PType) -> Result<Seq<u8>, ()> {
 // // //         self().spec_serialize(v)
 // // //     }
 // // // }
@@ -1473,7 +1461,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // //         self().is_productive()
 // // //     }
 // // //
-// // //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+// // //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 // // //         self().theorem_serialize_parse_roundtrip(v)
 // // //     }
 // // //
@@ -1710,13 +1698,13 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl SpecCombinator for SpecInstrCom {
-// //     type Type = SpecInstrFmt;
+// //     type PType = SpecInstrFmt;
 // //
-// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::PType), ()> {
 // //         self.0.spec_parse(s)
 // //     }
 // //
-// //     closed spec fn spec_serialize(&self, v: Self::Type) -> Result<Seq<u8>, ()> {
+// //     closed spec fn spec_serialize(&self, v: Self::PType) -> Result<Seq<u8>, ()> {
 // //         self.0.spec_serialize(v)
 // //     }
 // // }
@@ -1730,7 +1718,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         self.0.is_productive()
 // //     }
 // //
-// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 // //         // self.0.theorem_serialize_parse_roundtrip(v.0)
 // //         self.0.theorem_serialize_parse_roundtrip(v)
 // //     }
@@ -1753,13 +1741,13 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl SpecCombinator for SpecAuxBlockCom {
-// //     type Type = SpecAuxBlockFmt;
+// //     type PType = SpecAuxBlockFmt;
 // //
-// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+// //     closed spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::PType), ()> {
 // //         self.0.spec_parse(s)
 // //     }
 // //
-// //     closed spec fn spec_serialize(&self, v: Self::Type) -> Result<Seq<u8>, ()> {
+// //     closed spec fn spec_serialize(&self, v: Self::PType) -> Result<Seq<u8>, ()> {
 // //         self.0.spec_serialize(v)
 // //     }
 // // }
@@ -1773,7 +1761,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         self.0.is_productive()
 // //     }
 // //
-// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+// //     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
 // //         self.0.theorem_serialize_parse_roundtrip(v)
 // //
 // //     }
@@ -1807,7 +1795,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //
 // // // impl DisjointFrom<Refined<U8, TagPred<u8>>> for SpecInstrCom {}
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for InstrCom {
-// //     type Type = InstrFmt;
+// //     type PType = InstrFmt;
 // //
 // //     open spec fn spec_length(&self) -> Option<usize> {
 // //         None
@@ -1817,14 +1805,14 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         None
 // //     }
 // //
-// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::Type), ParseError> {
+// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::PType), ParseError> {
 // //         <_ as Combinator<&[u8], Vec<u8>>>::parse(
 // //             &self.0,
 // //             s,
 // //         )
 // //     }
 // //
-// //     fn serialize(&self, v: Self::Type, data: &mut Vec<u8>, pos: usize) -> Result<
+// //     fn serialize(&self, v: Self::PType, data: &mut Vec<u8>, pos: usize) -> Result<
 // //         usize,
 // //         SerializeError,
 // //     > {
@@ -1833,7 +1821,7 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // // }
 // //
 // // impl<'a> Combinator<&'a [u8], Vec<u8>> for AuxBlockCom {
-// //     type Type = AuxBlockFmt;
+// //     type PType = AuxBlockFmt;
 // //
 // //     open spec fn spec_length(&self) -> Option<usize> {
 // //         None
@@ -1843,14 +1831,14 @@ impl<'x, I, O, C: Combinator<'x, I, O>> Combinator<'x, I, O> for Box<C> where
 // //         None
 // //     }
 // //
-// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::Type), ParseError> {
+// //     fn parse(&self, s: &'a [u8]) -> Result<(usize, Self::PType), ParseError> {
 // //         <_ as Combinator<&[u8], Vec<u8>>>::parse(
 // //             &self.0,
 // //             s,
 // //         )
 // //     }
 // //
-// //     fn serialize(&self, v: Self::Type, data: &mut Vec<u8>, pos: usize) -> Result<
+// //     fn serialize(&self, v: Self::PType, data: &mut Vec<u8>, pos: usize) -> Result<
 // //         usize,
 // //         SerializeError,
 // //     > {

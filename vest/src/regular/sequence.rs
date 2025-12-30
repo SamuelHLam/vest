@@ -8,26 +8,26 @@ verus! {
 pub type GhostFn<I, O> = spec_fn(I) -> O;
 
 /// Alias for a spec dependent pair combinator.
-pub type SpecPair<Fst, Snd> = Pair<Fst, Snd, GhostFn<<Fst as SpecCombinator>::Type, Snd>>;
+pub type SpecPair<Fst, Snd> = Pair<Fst, Snd, GhostFn<<Fst as SpecCombinator>::PType, Snd>>;
 
 impl<Fst, Snd> SpecCombinator for SpecPair<Fst, Snd> where
     Fst: SecureSpecCombinator,
     Snd: SpecCombinator,
  {
-    type Type = (Fst::Type, Snd::Type);
+    type PType = (Fst::PType, Snd::PType);
 
     open spec fn requires(&self) -> bool {
         &&& Fst::is_prefix_secure()
         &&& self.fst.requires()
-        &&& forall|i: Fst::Type| #[trigger] (self.snd)(i).requires()
+        &&& forall|i: Fst::PType| #[trigger] (self.snd)(i).requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         &&& self.fst.wf(v.0)
         &&& (self.snd)(v.0).wf(v.1)
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, v1)) = self.fst.spec_parse(s) {
             let snd = (self.snd)(v1);
             if let Some((m, v2)) = snd.spec_parse(s.skip(n as int)) {
@@ -40,7 +40,7 @@ impl<Fst, Snd> SpecCombinator for SpecPair<Fst, Snd> where
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         let snd = (self.snd)(v.0);
         let buf1 = self.fst.spec_serialize(v.0);
         let buf2 = snd.spec_serialize(v.1);
@@ -52,7 +52,7 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
     Fst: SecureSpecCombinator,
     Snd: SecureSpecCombinator,
  {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         let buf = self.spec_serialize(v);
         let buf0 = self.fst.spec_serialize(v.0);
         let buf1 = (self.snd)(v.0).spec_serialize(v.1);
@@ -171,7 +171,7 @@ pub struct Pair<Fst, Snd, Cont> {
 impl<Fst, Snd, Cont> Pair<Fst, Snd, Cont> where
     Fst: View,
     Snd: View,
-    Cont: View<V = GhostFn<<Fst::V as SpecCombinator>::Type, Snd::V>>,
+    Cont: View<V = GhostFn<<Fst::V as SpecCombinator>::PType, Snd::V>>,
     Fst::V: SecureSpecCombinator,
     Snd::V: SpecCombinator,
  {
@@ -184,12 +184,12 @@ impl<Fst, Snd, Cont> Pair<Fst, Snd, Cont> where
     }
 }
 
-impl<Fst, Snd> Pair<Fst, Snd, GhostFn<Fst::Type, Snd>> where
+impl<Fst, Snd> Pair<Fst, Snd, GhostFn<Fst::PType, Snd>> where
     Fst: SecureSpecCombinator,
     Snd: SpecCombinator,
  {
     /// Creates a new `Pair` combinator.
-    pub open spec fn spec_new(fst: Fst, snd: GhostFn<Fst::Type, Snd>) -> Self {
+    pub open spec fn spec_new(fst: Fst, snd: GhostFn<Fst::PType, Snd>) -> Self {
         Pair { fst, _snd: std::marker::PhantomData, snd }
     }
 }
@@ -197,11 +197,11 @@ impl<Fst, Snd> Pair<Fst, Snd, GhostFn<Fst::Type, Snd>> where
 impl<Fst, Snd, Cont> View for Pair<Fst, Snd, Cont> where
     Fst: View,
     Snd: View,
-    Cont: View<V = GhostFn<<Fst::V as SpecCombinator>::Type, Snd::V>>,
+    Cont: View<V = GhostFn<<Fst::V as SpecCombinator>::PType, Snd::V>>,
     Fst::V: SecureSpecCombinator,
     Snd::V: SpecCombinator,
  {
-    type V = Pair<Fst::V, Snd::V, GhostFn<<Fst::V as SpecCombinator>::Type, Snd::V>>;
+    type V = Pair<Fst::V, Snd::V, GhostFn<<Fst::V as SpecCombinator>::PType, Snd::V>>;
 
     open spec fn view(&self) -> Self::V {
         Pair::spec_new(self.fst@, self.snd@)
@@ -232,19 +232,20 @@ impl<PType: View, SType: View<V = <PType as View>::V>, GType: View> View for PSO
     }
 }
 
-impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> where
+impl<'x, I, O, S, Fst, Snd, Cont> Combinator<'x, I, O, S> for Pair<Fst, Snd, Cont> where
     I: VestInput,
-    O: VestOutput<I>,
-    Fst: Combinator<'x, I, O>,
-    Snd: Combinator<'x, I, O>,
-    Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
-    Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Fst: Combinator<'x, I, O, S>,
+    Snd: Combinator<'x, I, O, S>,
+    Fst::V: SecureSpecCombinator<PType = <Fst::PType as View>::V>,
+    Snd::V: SecureSpecCombinator<PType = <Snd::PType as View>::V>,
     Fst::SType: Copy,
-    Cont: for <'a>Continuation<PSOrGType<&'a Fst::Type, Fst::SType, &'a Fst::GType>, Output = Snd>,
-    Cont: View<V = GhostFn<<Fst::Type as View>::V, Snd::V>>,
-    <Fst as Combinator<'x, I, O>>::Type: 'x,
+    Cont: for <'a>Continuation<PSOrGType<&'a Fst::PType, Fst::SType, &'a Fst::GType>, Output = Snd>,
+    Cont: View<V = GhostFn<<Fst::PType as View>::V, Snd::V>>,
+    <Fst as Combinator<'x, I, O, S>>::PType: 'x,
  {
-    type Type = (Fst::Type, Snd::Type);
+    type PType = (Fst::PType, Snd::PType);
 
     type SType = (Fst::SType, Snd::SType);
 
@@ -263,7 +264,7 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
             self.snd.ensures(i, snd) ==> snd.ex_requires() && snd@ == spec_snd_dep(i@)
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         let (n, v1) = self.fst.parse(s.clone())?;
         proof {
             self@.fst.lemma_parse_length(s@);
@@ -297,32 +298,32 @@ impl<'x, I, O, Fst, Snd, Cont> Combinator<'x, I, O> for Pair<Fst, Snd, Cont> whe
 }
 
 impl<Fst: SecureSpecCombinator, Snd: SpecCombinator> SpecCombinator for (Fst, Snd) {
-    type Type = (Fst::Type, Snd::Type);
+    type PType = (Fst::PType, Snd::PType);
 
     open spec fn requires(&self) -> bool {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).requires()
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).wf(v)
+    open spec fn wf(&self, v: Self::PType) -> bool {
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).wf(v)
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).spec_parse(s)
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).spec_parse(s)
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).spec_serialize(v)
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).spec_serialize(v)
     }
 }
 
 impl<Fst: SecureSpecCombinator, Snd: SecureSpecCombinator> SecureSpecCombinator for (Fst, Snd) {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).theorem_serialize_parse_roundtrip(v)
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).theorem_serialize_parse_roundtrip(v)
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).theorem_parse_serialize_roundtrip(buf)
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).theorem_parse_serialize_roundtrip(buf)
     }
 
     open spec fn is_prefix_secure() -> bool {
@@ -330,31 +331,32 @@ impl<Fst: SecureSpecCombinator, Snd: SecureSpecCombinator> SecureSpecCombinator 
     }
 
     proof fn lemma_prefix_secure(&self, buf: Seq<u8>, s2: Seq<u8>) {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).lemma_prefix_secure(buf, s2)
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).lemma_prefix_secure(buf, s2)
     }
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).lemma_parse_length(s)
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).lemma_parse_length(s)
     }
 
     open spec fn is_productive(&self) -> bool {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).is_productive()
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).is_productive()
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
-        Pair::spec_new(self.0, |r: Fst::Type| self.1).lemma_parse_productive(s)
+        Pair::spec_new(self.0, |r: Fst::PType| self.1).lemma_parse_productive(s)
     }
 }
 
-impl<'x, Fst, Snd, I, O> Combinator<'x, I, O> for (Fst, Snd) where
+impl<'x, Fst, Snd, I, O, S> Combinator<'x, I, O, S> for (Fst, Snd) where
     I: VestInput,
-    O: VestOutput<I>,
-    Fst: Combinator<'x, I, O>,
-    Snd: Combinator<'x, I, O>,
-    Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
-    Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Fst: Combinator<'x, I, O, S>,
+    Snd: Combinator<'x, I, O, S>,
+    Fst::V: SecureSpecCombinator<PType = <Fst::PType as View>::V>,
+    Snd::V: SecureSpecCombinator<PType = <Snd::PType as View>::V>,
  {
-    type Type = (Fst::Type, Snd::Type);
+    type PType = (Fst::PType, Snd::PType);
 
     type SType = (Fst::SType, Snd::SType);
 
@@ -368,7 +370,7 @@ impl<'x, Fst, Snd, I, O> Combinator<'x, I, O> for (Fst, Snd) where
         self.0.ex_requires() && self.1.ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         let (n, v1) = self.0.parse(s.clone())?;
         proof {
             self@.0.lemma_parse_length(s@);
@@ -416,21 +418,21 @@ impl<Fst: View, Snd: View> View for Preceded<Fst, Snd> {
     }
 }
 
-impl<Fst: SecureSpecCombinator<Type = ()>, Snd: SpecCombinator> SpecCombinator for Preceded<
+impl<Fst: SecureSpecCombinator<PType = ()>, Snd: SpecCombinator> SpecCombinator for Preceded<
     Fst,
     Snd,
 > {
-    type Type = Snd::Type;
+    type PType = Snd::PType;
 
     open spec fn requires(&self) -> bool {
         (self.0, self.1).requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         (self.0, self.1).wf(((), v))
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, ((), v))) = (self.0, self.1).spec_parse(s) {
             Some((n, v))
         } else {
@@ -438,16 +440,16 @@ impl<Fst: SecureSpecCombinator<Type = ()>, Snd: SpecCombinator> SpecCombinator f
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         (self.0, self.1).spec_serialize(((), v))
     }
 }
 
 impl<
-    Fst: SecureSpecCombinator<Type = ()>,
+    Fst: SecureSpecCombinator<PType = ()>,
     Snd: SecureSpecCombinator,
 > SecureSpecCombinator for Preceded<Fst, Snd> {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         (self.0, self.1).theorem_serialize_parse_roundtrip(((), v));
     }
 
@@ -484,15 +486,16 @@ impl<
     }
 }
 
-impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Preceded<Fst, Snd> where
+impl<'x, I, O, S, Fst, Snd> Combinator<'x, I, O, S> for Preceded<Fst, Snd> where
     I: VestInput,
-    O: VestOutput<I>,
-    Fst: Combinator<'x, I, O, Type = (), SType = ()>,
-    Snd: Combinator<'x, I, O>,
-    Fst::V: SecureSpecCombinator<Type = ()>,
-    Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Fst: Combinator<'x, I, O, S, PType = (), SType = ()>,
+    Snd: Combinator<'x, I, O, S>,
+    Fst::V: SecureSpecCombinator<PType = ()>,
+    Snd::V: SecureSpecCombinator<PType = <Snd::PType as View>::V>,
  {
-    type Type = Snd::Type;
+    type PType = Snd::PType;
 
     type SType = Snd::SType;
 
@@ -506,7 +509,7 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Preceded<Fst, Snd> where
         (&self.0, &self.1).ex_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
         let (n, ((), v)) = (&self.0, &self.1).parse(s.clone())?;
         Ok((n, v))
     }
@@ -535,21 +538,21 @@ impl<Fst: View, Snd: View> View for Terminated<Fst, Snd> {
     }
 }
 
-impl<Fst: SecureSpecCombinator, Snd: SpecCombinator<Type = ()>> SpecCombinator for Terminated<
+impl<Fst: SecureSpecCombinator, Snd: SpecCombinator<PType = ()>> SpecCombinator for Terminated<
     Fst,
     Snd,
 > {
-    type Type = Fst::Type;
+    type PType = Fst::PType;
 
     open spec fn requires(&self) -> bool {
         (self.0, self.1).requires()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         (self.0, self.1).wf((v, ()))
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, (v, ()))) = (self.0, self.1).spec_parse(s) {
             Some((n, v))
         } else {
@@ -557,16 +560,16 @@ impl<Fst: SecureSpecCombinator, Snd: SpecCombinator<Type = ()>> SpecCombinator f
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         (self.0, self.1).spec_serialize((v, ()))
     }
 }
 
 impl<
     Fst: SecureSpecCombinator,
-    Snd: SecureSpecCombinator<Type = ()>,
+    Snd: SecureSpecCombinator<PType = ()>,
 > SecureSpecCombinator for Terminated<Fst, Snd> {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         (self.0, self.1).theorem_serialize_parse_roundtrip((v, ()));
     }
 
@@ -603,15 +606,16 @@ impl<
     }
 }
 
-impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Terminated<Fst, Snd> where
+impl<'x, I, O, S, Fst, Snd> Combinator<'x, I, O, S> for Terminated<Fst, Snd> where
     I: VestInput,
-    O: VestOutput<I>,
-    Fst: Combinator<'x, I, O>,
-    Snd: Combinator<'x, I, O, Type = (), SType = (), GType = ()>,
-    Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
-    Snd::V: SecureSpecCombinator<Type = ()>,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Fst: Combinator<'x, I, O, S>,
+    Snd: Combinator<'x, I, O, S, PType = (), SType = (), GType = ()>,
+    Fst::V: SecureSpecCombinator<PType = <Fst::PType as View>::V>,
+    Snd::V: SecureSpecCombinator<PType = ()>,
  {
-    type Type = Fst::Type;
+    type PType = Fst::PType;
 
     type SType = Fst::SType;
 
@@ -625,7 +629,7 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Terminated<Fst, Snd> where
         (&self.0, &self.1).ex_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
         let (n, (v, ())) = (&self.0, &self.1).parse(s.clone())?;
         Ok((n, v))
     }

@@ -306,7 +306,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
     }
 }
 
-impl<'x, I, O> Combinator<'x, I, O> for UnsignedLEB128 where
+impl<'x, I, O, S> Combinator<'x, I, O, S> for UnsignedLEB128 where
     I: VestPublicInput,
     O: VestPublicOutput<I>,
  {

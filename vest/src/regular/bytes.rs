@@ -29,13 +29,14 @@ impl Variable {
     }
 
     /// Chains this combinator with another combinator.
-    pub fn and_then<'x, I, O, Next: Combinator<'x, I, O>>(self, next: Next) -> (o: AndThen<
+    pub fn and_then<'x, I, O, S, Next: Combinator<'x, I, O, S>>(self, next: Next) -> (o: AndThen<
         Variable,
         Next,
     >) where
         I: VestPublicInput,
-        O: VestPublicOutput<I>,
-        Next::V: SecureSpecCombinator<Type = <Next::Type as View>::V>,
+        O: VestPublicOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+        S: CompleteRef<I> + CompleteRef<O>,
+        Next::V: SecureSpecCombinator<PType = <Next::PType as View>::V>,
 
         ensures
             o@ == self@.spec_and_then(next@),
@@ -45,13 +46,13 @@ impl Variable {
 }
 
 impl SpecCombinator for Variable {
-    type Type = Seq<u8>;
+    type PType = Seq<u8>;
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         v.len() == self.0
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if self.0 <= s.len() {
             Some((self.0 as int, s.take(self.0 as int)))
         } else {
@@ -59,7 +60,7 @@ impl SpecCombinator for Variable {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         v
     }
 }
@@ -81,7 +82,7 @@ impl SecureSpecCombinator for Variable {
         }
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         assert(v.take(v.len() as int) == v);
     }
 
@@ -95,8 +96,12 @@ impl SecureSpecCombinator for Variable {
     }
 }
 
-impl<'x, I, O> Combinator<'x, I, O> for Variable where I: VestInput + 'x, O: VestOutput<I> {
-    type Type = I;
+impl<'x, I, O, S> Combinator<'x, I, O, S> for Variable where
+    I: VestInput,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>
+{
+    type PType = I;
 
     type SType = &'x I;
 
@@ -107,7 +112,7 @@ impl<'x, I, O> Combinator<'x, I, O> for Variable where I: VestInput + 'x, O: Ves
         self.0
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         if self.0 <= s.len() {
             let s_ = s.subrange(0, self.0);
             Ok((self.0, s_))
@@ -147,13 +152,13 @@ impl<const N: usize> View for Fixed<N> {
 }
 
 impl<const N: usize> SpecCombinator for Fixed<N> {
-    type Type = Seq<u8>;
+    type PType = Seq<u8>;
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         v.len() == N
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if N <= s.len() {
             Some((N as int, s.take(N as int)))
         } else {
@@ -161,7 +166,7 @@ impl<const N: usize> SpecCombinator for Fixed<N> {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         v
     }
 }
@@ -183,7 +188,7 @@ impl<const N: usize> SecureSpecCombinator for Fixed<N> {
         }
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         assert(v.take(v.len() as int) == v);
     }
 
@@ -197,15 +202,16 @@ impl<const N: usize> SecureSpecCombinator for Fixed<N> {
     }
 }
 
-impl<'x, const N: usize, I, O> Combinator<'x, I, O> for Fixed<N> where
-    I: VestInput + 'x + GtoPType<O>,
-    O: VestOutput<I>,
+impl<const N: usize, 'x, I, O, S> Combinator<'x, I, O, S> for Fixed<N> where
+    I: VestInput,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
  {
-    type Type = I;
+    type PType = I;
 
-    type SType = PtoSType<Self::Type>::p_ref();
+    // type SType = PtoSType<Self::PType>::p_ref();
 
-    // type SType = &'x I;
+    type SType = S;
 
     type GType = O;
 
@@ -213,7 +219,7 @@ impl<'x, const N: usize, I, O> Combinator<'x, I, O> for Fixed<N> where
         N
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         if N <= s.len() {
             let s_ = s.subrange(0, N);
             Ok((N, s_))
@@ -252,19 +258,19 @@ impl View for Tail {
 }
 
 impl SpecCombinator for Tail {
-    type Type = Seq<u8>;
+    type PType = Seq<u8>;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         Some((s.len() as int, s))
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         v
     }
 }
 
 impl SecureSpecCombinator for Tail {
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
@@ -289,10 +295,14 @@ impl SecureSpecCombinator for Tail {
     }
 }
 
-impl<'x, I: VestInput + 'x, O: VestOutput<I>> Combinator<'x, I, O> for Tail {
-    type Type = I;
+impl<'x, I, O, S> Combinator<'x, I, O, S> for Tail where
+    I: VestInput,
+    O: VestOutput<I> + CompleteOwn<I> + CompleteOwn<S>,
+    S: CompleteRef<I> + CompleteRef<O>,
+{
+    type PType = I;
 
-    type SType = &'x I;
+    type SType = S;
 
     type GType = O;
 
@@ -300,7 +310,7 @@ impl<'x, I: VestInput + 'x, O: VestOutput<I>> Combinator<'x, I, O> for Tail {
         v.len()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         Ok(((s.len()), s))
     }
 

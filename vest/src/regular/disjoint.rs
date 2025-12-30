@@ -28,7 +28,7 @@ pub trait DisjointFrom<Other> where Self: SpecCombinator, Other: SpecCombinator 
 }
 
 // two `Tag(T, value)`s are disjoint if their inner `Refined` combinators are disjoint
-impl<Inner, T> DisjointFrom<Tag<Inner, T>> for Tag<Inner, T> where Inner: SpecCombinator<Type = T> {
+impl<Inner, T> DisjointFrom<Tag<Inner, T>> for Tag<Inner, T> where Inner: SpecCombinator<PType = T> {
     open spec fn disjoint_from(&self, other: &Tag<Inner, T>) -> bool {
         self.0.disjoint_from(&other.0)
     }
@@ -57,8 +57,8 @@ impl<U1, U2, V1, V2> DisjointFrom<(U2, V2)> for (U1, V1) where
 // if `U1` and `U2` are disjoint, then `preceded(U1, V1)` and `preceded(U2, V2)` are disjoint
 impl<U1, U2, V1, V2> DisjointFrom<Preceded<U2, V2>> for Preceded<U1, V1> where
     U1: DisjointFrom<U2>,
-    U1: SecureSpecCombinator<Type = ()>,
-    U2: SecureSpecCombinator<Type = ()>,
+    U1: SecureSpecCombinator<PType = ()>,
+    U2: SecureSpecCombinator<PType = ()>,
     V1: SpecCombinator,
     V2: SpecCombinator,
  {

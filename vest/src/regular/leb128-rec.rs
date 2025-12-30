@@ -282,7 +282,7 @@ impl UnsignedLEB128 {
         }
     }
 
-    fn exec_serialize_rec_helper<I, O>(&self, v: UInt, buf: &mut O, pos: usize) -> (res: SResult<
+    fn exec_serialize_rec_helper<'x, I, O, S>(&self, v: UInt, buf: &mut O, pos: usize) -> (res: SResult<
         usize,
         SerializeError,
     >) where I: VestPublicInput, O: VestPublicOutput<I>
@@ -438,7 +438,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
     }
 }
 
-impl<I: std::fmt::Debug, O> Combinator<I, O> for UnsignedLEB128 where
+impl<I: std::fmt::Debug, O> Combinator<'x, I, O, S> for UnsignedLEB128 where
     I: VestPublicInput,
     O: VestPublicOutput<I>,
  {

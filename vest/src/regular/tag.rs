@@ -54,7 +54,7 @@ impl<Inner: View, T: View> View for Tag<Inner, T> {
     }
 }
 
-impl<Inner: SpecCombinator<Type = T>, T> SpecCombinator for Tag<Inner, T> {
+impl<Inner: SpecCombinator<PType = T>, T> SpecCombinator for Tag<Inner, T> {
     type PType = ();
 
     open spec fn requires(&self) -> bool {
@@ -78,7 +78,7 @@ impl<Inner: SpecCombinator<Type = T>, T> SpecCombinator for Tag<Inner, T> {
     }
 }
 
-impl<Inner: SecureSpecCombinator<Type = T>, T> SecureSpecCombinator for Tag<Inner, T> {
+impl<Inner: SecureSpecCombinator<PType = T>, T> SecureSpecCombinator for Tag<Inner, T> {
     open spec fn is_prefix_secure() -> bool {
         Inner::is_prefix_secure()
     }
@@ -144,7 +144,7 @@ impl<'a, const N: usize> Pred<&'a [u8]> for TagPred<[u8; N]> {
 macro_rules! impl_combinator_for_uint_tag {
     ($combinator:ty, $int_type:ty) => {
         ::vstd::prelude::verus! {
-            impl<'x, I, O> Combinator<'x, I, O> for Tag<$combinator, $int_type> where
+            impl<'x, I, O, S> Combinator<'x, I, O, S> for Tag<$combinator, $int_type> where
                 I: VestPublicInput,
                 O: VestPublicOutput<I>,
             {
@@ -153,15 +153,15 @@ macro_rules! impl_combinator_for_uint_tag {
                 type SType = ();
 
                 fn length(&self, v: Self::SType) -> usize {
-                    <_ as Combinator<I, O>>::length(&self.0, &self.0.predicate.0)
+                    <_ as Combinator<'x, I, O, S>>::length(&self.0, &self.0.predicate.0)
                 }
 
                 open spec fn ex_requires(&self) -> bool {
-                    <_ as Combinator<'x, I, O>>::ex_requires(&self.0)
+                    <_ as Combinator<'x, I, O, S>>::ex_requires(&self.0)
                 }
 
                 fn parse(&self, s: I) -> Result<(usize, Self::PType), ParseError> {
-                    let (n, _) = <_ as Combinator<'x, I, O>>::parse(&self.0, s)?;
+                    let (n, _) = <_ as Combinator<'x, I, O, S>>::parse(&self.0, s)?;
                     Ok((n, ()))
                 }
 

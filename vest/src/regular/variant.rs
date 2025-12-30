@@ -55,20 +55,20 @@ impl<Fst, Snd> SpecCombinator for Choice<Fst, Snd> where
     Fst: SpecCombinator,
     Snd: SpecCombinator + DisjointFrom<Fst>,
  {
-    type Type = Either<Fst::Type, Snd::Type>;
+    type PType = Either<Fst::PType, Snd::PType>;
 
     open spec fn requires(&self) -> bool {
         self.0.requires() && self.1.requires() && self.1.disjoint_from(&self.0)
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         match v {
             Either::Left(v) => self.0.wf(v),
             Either::Right(v) => self.1.wf(v),
         }
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, v)) = self.0.spec_parse(s) {
             Some((n, Either::Left(v)))
         } else {
@@ -80,7 +80,7 @@ impl<Fst, Snd> SpecCombinator for Choice<Fst, Snd> where
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         match v {
             Either::Left(v) => self.0.spec_serialize(v),
             Either::Right(v) => self.1.spec_serialize(v),
@@ -111,7 +111,7 @@ impl<Fst, Snd> SecureSpecCombinator for Choice<Fst, Snd> where
         }
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         match v {
             Either::Left(v) => {
                 self.0.theorem_serialize_parse_roundtrip(v);
@@ -157,16 +157,17 @@ impl<Fst, Snd> SecureSpecCombinator for Choice<Fst, Snd> where
     }
 }
 
-impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Choice<Fst, Snd> where
+impl<'x, I, O, S, Fst, Snd> Combinator<'x, I, O, S> for Choice<Fst, Snd> where
     I: VestInput,
-    O: VestOutput<I>,
-    Fst: Combinator<'x, I, O>,
-    Snd: Combinator<'x, I, O>,
-    Fst::V: SecureSpecCombinator<Type = <Fst::Type as View>::V>,
-    Snd::V: SecureSpecCombinator<Type = <Snd::Type as View>::V>,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    Fst: Combinator<'x, I, O, S>,
+    Snd: Combinator<'x, I, O, S>,
+    Fst::V: SecureSpecCombinator<PType = <Fst::PType as View>::V>,
+    Snd::V: SecureSpecCombinator<PType = <Snd::PType as View>::V>,
     Snd::V: DisjointFrom<Fst::V>,
  {
-    type Type = Either<Fst::Type, Snd::Type>;
+    type PType = Either<Fst::PType, Snd::PType>;
 
     type SType = Either<Fst::SType, Snd::SType>;
 
@@ -183,7 +184,7 @@ impl<'x, I, O, Fst, Snd> Combinator<'x, I, O> for Choice<Fst, Snd> where
         self.0.ex_requires() && self.1.ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         if let Ok((n, v)) = self.0.parse(s.clone()) {
             Ok((n, Either::Left(v)))
         } else {
@@ -279,20 +280,20 @@ impl<T: View> View for Optional<T> where  {
 }
 
 impl<T: SecureSpecCombinator> SpecCombinator for Opt<T> where  {
-    type Type = Option<T::Type>;
+    type PType = Option<T::PType>;
 
     open spec fn requires(&self) -> bool {
         self.0.requires() && self.0.is_productive()
     }
 
-    open spec fn wf(&self, v: Self::Type) -> bool {
+    open spec fn wf(&self, v: Self::PType) -> bool {
         match v {
             Some(vv) => self.0.wf(vv),
             None => true,
         }
     }
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::Type)> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Option<(int, Self::PType)> {
         if let Some((n, v)) = self.0.spec_parse(s) {
             Some((n, Some(v)))
         } else {
@@ -300,7 +301,7 @@ impl<T: SecureSpecCombinator> SpecCombinator for Opt<T> where  {
         }
     }
 
-    open spec fn spec_serialize(&self, v: Self::Type) -> Seq<u8> {
+    open spec fn spec_serialize(&self, v: Self::PType) -> Seq<u8> {
         match v {
             Some(v) => self.0.spec_serialize(v),
             None => Seq::empty(),
@@ -320,7 +321,7 @@ impl<T: SecureSpecCombinator> SecureSpecCombinator for Opt<T> where  {
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
     }
 
-    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type) {
+    proof fn theorem_serialize_parse_roundtrip(&self, v: Self::PType) {
         if self.wf(v) {
             match v {
                 Some(vv) => {
@@ -358,16 +359,17 @@ impl<T: SecureSpecCombinator> SecureSpecCombinator for Opt<T> where  {
     }
 }
 
-impl<'x, I, O, T> Combinator<'x, I, O> for Opt<T> where
+impl<'x, I, O, S, T> Combinator<'x, I, O, S> for Opt<T> where
     I: VestInput,
-    O: VestOutput<I>,
-    T: Combinator<'x, I, O, SType = &'x <T as Combinator<'x, I, O>>::Type>,
-    T::V: SecureSpecCombinator<Type = <T::Type as View>::V>,
-    T::Type: 'x,
+    O: VestOutput<I> + CompleteOwn<S> + CompleteOwn<I>,
+    S: CompleteRef<I> + CompleteRef<O>,
+    T: Combinator<'x, I, O, S, SType = &'x <T as Combinator<'x, I, O, S>>::PType>,
+    T::V: SecureSpecCombinator<PType = <T::PType as View>::V>,
+    T::PType: 'x,
  {
-    type Type = Optional<T::Type>;
+    type PType = Optional<T::PType>;
 
-    type SType = &'x Self::Type;
+    type SType = &'x Self::PType;
 
     type GType = Optional<T::GType>;
 
@@ -382,7 +384,7 @@ impl<'x, I, O, T> Combinator<'x, I, O> for Opt<T> where
         self.0.ex_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I) -> (res: Result<(usize, Self::PType), ParseError>) {
         if let Ok((n, v)) = self.0.parse(s) {
             Ok((n, Optional(Some(v))))
         } else {

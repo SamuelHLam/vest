@@ -52,10 +52,12 @@ impl SecureSpecCombinator for Success {
     }
 }
 
-impl<'x, I: VestInput, O: VestOutput<I>> Combinator<'x, I, O> for Success {
+impl<I: VestInput, O: VestOutput<I>> Combinator<'x, I, O, S> for Success {
     type PType = ();
 
     type SType = ();
+
+    type GType = ();
 
     fn length(&self, _v: Self::SType) -> usize {
         0
@@ -72,6 +74,11 @@ impl<'x, I: VestInput, O: VestOutput<I>> Combinator<'x, I, O> for Success {
         assert(seq_splice(data@, pos, Seq::<u8>::empty()) == data@);
         Ok(0)
     }
+
+    fn generate(&self, g: &mut GenSt) -> (res: Result<(usize, Self::GType), GenerateError>) {
+        Ok((0, ()))
+    }
+
 }
 
 } // verus!
