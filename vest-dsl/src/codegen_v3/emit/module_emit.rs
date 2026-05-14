@@ -333,6 +333,16 @@ impl<'a> DefinitionEmitter<'a> {
                     self.0.serialize(v, data, pos)
                 }
 
+                fn serialize_gen(
+                    &self,
+                    v: Self::GType,
+                    data: &mut Vec<u8>,
+                    pos: usize,
+                ) -> Result<usize, SerializeError>
+                {
+                    self.0.serialize_gen(v, data, pos)
+                }
+
                 fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
                     self.0.generate(g)
                 }
@@ -510,7 +520,7 @@ fn param_usage_inner(
             param_usage_inner(inner, name, defs, seen, mode)
                 || param_usage_inner(suffix, name, defs, seen, mode)
         }
-        CombIR::Dispatch { tag, branches } => {
+        CombIR::Dispatch { tag, branches, .. } => {
             (mode == ParamUsageMode::GenerateRef && tag == name)
                 || branches
                     .iter()

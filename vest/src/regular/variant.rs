@@ -8,12 +8,13 @@ pub struct Dispatch<'a, T, C, const N: usize> {
     pub tag: RuntimeValue<'a, T>,
     /// The keyed branches to dispatch to (entirely static).
     pub branches: [(T, C); N],
+    pub default: Option<C>,
 }
 
 impl<'a, T, C, const N: usize> Dispatch<'a, T, C, N> {
     /// Create a new dispatch combinator with `N` branches.
-    pub fn new(tag: RuntimeValue<'a, T>, branches: [(T, C); N]) -> Self {
-        Self { tag, branches }
+    pub fn new(tag: RuntimeValue<'a, T>, branches: [(T, C); N], default: Option<C>) -> Self {
+        Self { tag, branches, default }
     }
 
     fn branch_index(&self) -> Option<usize>
@@ -77,6 +78,19 @@ where
             return Err(SerializeError::Other("condition not satisfied".into()));
         };
         self.branches[idx].1.serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let Some(idx) = self.branch_index() else {
+            return Err(SerializeError::Other("condition not satisfied".into()));
+        };
+        self.branches[idx].1.serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
@@ -221,6 +235,30 @@ macro_rules! enum_combinator {
                 }
             }
 
+            fn serialize_gen(
+                &self,
+                v: Self::GType,
+                data: &mut $O,
+                pos: usize,
+            ) -> Result<usize, $crate::errors::SerializeError>
+            {
+                match (self, v) {
+                    $(
+                        ($Enum::$Variant(inner), $Type::$Variant(val)) => {
+                            <$Inner as $crate::properties::Combinator<$I, $O>>::serialize_gen(
+                                inner,
+                                val,
+                                data,
+                                pos,
+                            )
+                        }
+                    )+,
+                    _ => Err($crate::errors::SerializeError::Other(
+                        "enum combinator does not match value".into(),
+                    )),
+                }
+            }
+
             fn generate(
                 &mut self,
                 g: &mut $crate::properties::GenSt,
@@ -326,6 +364,19 @@ where
         }
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        match v {
+            Either::Left(v) => self.0.serialize_gen(v, data, pos),
+            Either::Right(v) => self.1.serialize_gen(v, data, pos),
+        }
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         if g.rng.random_bool(0.5) {
             let (n, v) = self.0.generate(g)?;
@@ -404,6 +455,25 @@ where
     {
         match v {
             Some(v) => self.0.serialize(v, data, pos),
+            None => {
+                if pos <= data.len() {
+                    Ok(0)
+                } else {
+                    Err(SerializeError::InsufficientBuffer)
+                }
+            }
+        }
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        match v {
+            Some(v) => self.0.serialize_gen(v, data, pos),
             None => {
                 if pos <= data.len() {
                     Ok(0)
@@ -496,6 +566,21 @@ where
             written = self.0 .0.serialize(v0, data, pos)?;
         }
         let n1 = self.1.serialize(v.1, data, pos + written)?;
+        Ok(written + n1)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let mut written = 0;
+        if let Some(v0) = v.0 {
+            written = self.0 .0.serialize_gen(v0, data, pos)?;
+        }
+        let n1 = self.1.serialize_gen(v.1, data, pos + written)?;
         Ok(written + n1)
     }
 

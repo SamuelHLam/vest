@@ -17,12 +17,14 @@ impl<'a> DefinitionEmitter<'a> {
     pub(super) fn public_items(&self) -> TokenStream {
         let parse_fn = self.parse_fn();
         let serialize_fn = self.serialize_fn();
+        let serialize_gen_fn = self.serialize_gen_fn();
         let length_fn = self.length_fn();
         let generate_fn = self.generate_fn();
 
         quote! {
             #parse_fn
             #serialize_fn
+            #serialize_gen_fn
             #length_fn
             #generate_fn
         }
@@ -176,6 +178,36 @@ impl<'a> DefinitionEmitter<'a> {
             quote! {
                 let combinator = #combinator_ctor;
                 combinator.serialize(v, data, pos)
+            },
+        )
+    }
+
+    fn serialize_gen_fn(&self) -> TokenStream {
+        let fn_name = &self.def_ctx.names.serialize_gen_fn_ident;
+        let owned_type = public_owned_type_tokens(self.def_ctx);
+        let params = self.param_list_tokens();
+        let serialize_doc = format!(
+            "Serialize function for {} combinator (owned version)",
+            self.def_ctx.def.name
+        );
+        let combinator_ctor = self.public_ctor_call_tokens();
+
+        emit_function_item(
+            serialize_doc,
+            fn_name.clone(),
+            None,
+            vec![
+                quote! { v: #owned_type },
+                quote! { data: &mut Vec<u8> },
+                quote! { pos: usize },
+            ]
+            .into_iter()
+            .chain(params)
+            .collect(),
+            quote! { Result<usize, SerializeError> },
+            quote! {
+                let combinator = #combinator_ctor;
+                combinator.serialize_gen(v, data, pos)
             },
         )
     }

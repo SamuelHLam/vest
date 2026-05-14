@@ -76,6 +76,25 @@ where
         Ok(pos - start)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        mut pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let start = pos;
+        if v.len() != self.1 {
+            return Err(SerializeError::Other("RepeatN length mismatch".into()));
+        }
+
+        for item in v {
+            let n = self.0.serialize_gen(item, data, pos)?;
+            pos += n;
+        }
+        Ok(pos - start)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let mut values = Vec::with_capacity(self.1);
         let mut generated: usize = 0;
@@ -159,6 +178,21 @@ where
         let start = pos;
         for item in v {
             let n = self.0.serialize(*item, data, pos)?;
+            pos += n;
+        }
+        Ok(pos - start)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        mut pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let start = pos;
+        for item in v {
+            let n = self.0.serialize_gen(item, data, pos)?;
             pos += n;
         }
         Ok(pos - start)

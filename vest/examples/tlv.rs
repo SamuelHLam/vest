@@ -143,6 +143,9 @@ type PayloadComb<'g> = FixedLen<'g, Dispatch<'g, u8, PayloadCases, 3>>;
 type OuterLenComb = Refined<U16Le, fn(u16) -> bool>;
 type TlvComb = Mapped<Pair<(U8, OuterLenComb), PayloadDep>, MsgMapper>;
 
+// type TlsComb = Pair<(U8, Refined<U8, fn(u8) -> bool>), PayloadDep>;
+// type TlsLenComb = Refined<U8, fn(u8) -> bool>;
+
 struct PayloadDep;
 
 enum_combinator! {
@@ -178,6 +181,7 @@ fn payload_combinator<'a>(tag: RuntimeValue<'a, u8>, len: Length<'a>) -> Payload
                 (2, PayloadCases::Msg2(msg2_combinator())),
                 (3, PayloadCases::Msg3(msg3_combinator())),
             ],
+            None,
         ),
     )
 }
@@ -187,6 +191,10 @@ fn tlv_combinator() -> TlvComb {
         inner: U16Le,
         predicate: |v: u16| v <= 8000,
     };
+    // let nested_refined_len: OuterLenComb = Refined {
+    //     inner: U16Le,
+    //     predicate: |v: u16| v <= 5000,
+    // };
     Mapped::new(Pair::new((U8, refined_len), PayloadDep), MsgMapper)
 }
 
@@ -252,6 +260,15 @@ fn example_msg_generation() {
     println!("  Generation checks passed with nested refinements.");
 }
 
+// fn tls_example() {
+//     let mut comb = tls_combinator();
+//     let mut gen_st: GenSt = GenSt::new(100);
+//     let (_len, gen_msg) = comb.generate(&mut gen_st).expect("generate message");
+//     let summary = summarize_value(&gen_msg.val);
+//     println!("{} {} {}", gen_msg.tag, gen_msg.len, summary);
+// }
+
 fn main() {
     example_msg_generation();
+    // tls_example();
 }

@@ -146,6 +146,12 @@ impl<'s> From<&'s RefinedPacket> for (Header, (u16, &'s [Record])) {
     }
 }
 
+impl<'a> From<RefinedPacket> for (Header, (u16, Vec<Record>)) {
+    fn from(v: RefinedPacket) -> Self {
+        (v.header, (v.payload_len, v.payload))
+    }
+}
+
 pub struct RefinedPacketMapper;
 impl Mapper for RefinedPacketMapper {
     type Src<'p> = (Header, (u16, Vec<Record>));
@@ -228,6 +234,12 @@ impl From<((MsgTy, u16), MsgValOwned)> for MsgOwned {
             len: src.0.1,
             val: src.1,
         }
+    }
+}
+
+impl From<MsgOwned> for ((MsgTy, u16), MsgValOwned) {
+    fn from(v: MsgOwned) -> Self {
+        ((v.tag, v.len), v.val)
     }
 }
 
@@ -352,6 +364,7 @@ where
                     (MsgTy::Ty2, MsgValDispatchCase0::V2(msg2())),
                     (MsgTy::Ty3, MsgValDispatchCase0::V3(msg3())),
                 ],
+                None,
             ),
         ),
     )
@@ -502,6 +515,31 @@ where
             }
         }
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        match (self, v) {
+            (MsgValDispatchCase0::V1(inner), MsgValOwned::Ty1(v0)) => {
+                inner.serialize_gen(v0, data, pos)
+            }
+            (MsgValDispatchCase0::V2(inner), MsgValOwned::Ty2(v1)) => {
+                inner.serialize_gen(v1, data, pos)
+            }
+            (MsgValDispatchCase0::V3(inner), MsgValOwned::Ty3(v2)) => {
+                inner.serialize_gen(v2, data, pos)
+            }
+            _ => {
+                Err(
+                    SerializeError::Other(
+                        "dispatch branch combinator does not match value".into(),
+                    ),
+                )
+            }
+        }
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         match self {
             MsgValDispatchCase0::V1(inner) => {
@@ -567,6 +605,16 @@ pub fn serialize_Header<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for Header combinator (owned version)
+pub fn serialize_gen_Header(
+    v: Header,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = Header();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for Header combinator
 pub fn Header_len<'s>(v: Header) -> usize {
     let combinator = Header();
@@ -593,6 +641,16 @@ pub fn serialize_Record<'s>(
 ) -> Result<usize, SerializeError> {
     let combinator = Record();
     combinator.serialize(v, data, pos)
+}
+
+///Serialize function for Record combinator (owned version)
+pub fn serialize_gen_Record(
+    v: Record,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = Record();
+    combinator.serialize_gen(v, data, pos)
 }
 
 ///Length function for Record combinator
@@ -625,6 +683,16 @@ pub fn serialize_RefinedPacket<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for RefinedPacket combinator (owned version)
+pub fn serialize_gen_RefinedPacket(
+    v: RefinedPacket,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = RefinedPacket();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for RefinedPacket combinator
 pub fn RefinedPacket_len<'s>(v: &'s RefinedPacket) -> usize {
     let combinator = RefinedPacket();
@@ -651,6 +719,16 @@ pub fn serialize_msg3<'s>(
 ) -> Result<usize, SerializeError> {
     let combinator = msg3();
     combinator.serialize(v, data, pos)
+}
+
+///Serialize function for msg3 combinator (owned version)
+pub fn serialize_gen_msg3(
+    v: Msg3,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = msg3();
+    combinator.serialize_gen(v, data, pos)
 }
 
 ///Length function for msg3 combinator
@@ -681,6 +759,16 @@ pub fn serialize_msg1<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for msg1 combinator (owned version)
+pub fn serialize_gen_msg1(
+    v: Msg1Owned,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = msg1();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for msg1 combinator
 pub fn msg1_len<'s>(v: &'s [u8]) -> usize {
     let combinator = msg1();
@@ -707,6 +795,16 @@ pub fn serialize_msg2<'s>(
 ) -> Result<usize, SerializeError> {
     let combinator = msg2();
     combinator.serialize(v, data, pos)
+}
+
+///Serialize function for msg2 combinator (owned version)
+pub fn serialize_gen_msg2(
+    v: Msg2,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = msg2();
+    combinator.serialize_gen(v, data, pos)
 }
 
 ///Length function for msg2 combinator
@@ -743,6 +841,18 @@ pub fn serialize_msg_val<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for msg_val combinator (owned version)
+pub fn serialize_gen_msg_val(
+    v: MsgValOwned,
+    data: &mut Vec<u8>,
+    pos: usize,
+    len: u16,
+    tag: MsgTy,
+) -> Result<usize, SerializeError> {
+    let combinator = msg_val(len, tag);
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for msg_val combinator
 pub fn msg_val_len<'s>(v: &'s MsgVal<'s>, len: u16, tag: MsgTy) -> usize {
     let combinator = msg_val(len, tag);
@@ -775,6 +885,16 @@ pub fn serialize_msg_ty<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for msg_ty combinator (owned version)
+pub fn serialize_gen_msg_ty(
+    v: MsgTy,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = msg_ty();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for msg_ty combinator
 pub fn msg_ty_len<'s>(v: MsgTy) -> usize {
     let combinator = msg_ty();
@@ -801,6 +921,16 @@ pub fn serialize_msg<'s>(
 ) -> Result<usize, SerializeError> {
     let combinator = msg();
     combinator.serialize(v, data, pos)
+}
+
+///Serialize function for msg combinator (owned version)
+pub fn serialize_gen_msg(
+    v: MsgOwned,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = msg();
+    combinator.serialize_gen(v, data, pos)
 }
 
 ///Length function for msg combinator
@@ -845,6 +975,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -885,6 +1023,14 @@ where
         [u8]: 's,
     {
         self.0.serialize(v, data, pos)
+    }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
     }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
@@ -927,6 +1073,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -967,6 +1121,14 @@ where
         [u8]: 's,
     {
         self.0.serialize(v, data, pos)
+    }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
     }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
@@ -1009,6 +1171,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -1049,6 +1219,14 @@ where
         [u8]: 's,
     {
         self.0.serialize(v, data, pos)
+    }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
     }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
@@ -1091,6 +1269,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -1132,6 +1318,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -1172,6 +1366,14 @@ where
         [u8]: 's,
     {
         self.0.serialize(v, data, pos)
+    }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
     }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)

@@ -73,6 +73,7 @@ impl<'a> DefinitionEmitter<'a> {
         );
         let generate_type = public_owned_type_tokens(self.def_ctx);
         let type_name = &self.def_ctx.names.type_ident;
+        let gen_type_name = &self.def_ctx.names.owned_ident;
         let generate_enum_name = if self.def_ctx.analysis.needs_lifetime {
             &self.def_ctx.names.owned_ident
         } else {
@@ -141,6 +142,22 @@ impl<'a> DefinitionEmitter<'a> {
             })
             .collect();
 
+        let serialize_gen_arms: Vec<_> = branch_specs
+            .iter()
+            .zip(spec.branches.iter())
+            .enumerate()
+            .map(|(idx, (spec, _branch))| {
+                let variant = &spec.variant;
+                let nominal_variant = &spec.nominal_variant;
+                let value = format_ident!("v{}", idx);
+                // let borrowed = self.concrete_variant_borrow_expr(&value, &branch.comb);
+                quote! {
+                    (#helper::#variant(inner), #gen_type_name::#nominal_variant(#value)) =>
+                        inner.serialize_gen(#value, data, pos),
+                }
+            })
+            .collect();
+
         let wf_arms: Vec<_> = branch_specs
             .iter()
             .zip(spec.branches.iter())
@@ -200,6 +217,21 @@ impl<'a> DefinitionEmitter<'a> {
                 {
                     match (self, v) {
                         #(#serialize_arms)*
+                        _ => Err(SerializeError::Other(
+                            "dispatch branch combinator does not match value".into(),
+                        )),
+                    }
+                }
+
+                fn serialize_gen(
+                    &self,
+                    v: Self::GType,
+                    data: &mut Vec<u8>,
+                    pos: usize,
+                ) -> Result<usize, SerializeError>
+                {
+                    match (self, v) {
+                        #(#serialize_gen_arms)*
                         _ => Err(SerializeError::Other(
                             "dispatch branch combinator does not match value".into(),
                         )),

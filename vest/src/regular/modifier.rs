@@ -33,12 +33,20 @@ pub trait Mapper {
     {
         dst.into()
     }
+
     /// Convert from generated owned value to mapped owned value.
     fn forward_owned(&self, src: Self::SrcOwned) -> Self::DstOwned
     where
         Self::DstOwned: From<Self::SrcOwned>,
     {
         src.into()
+    }
+    /// Convert from mapped owned value to generated owned value.
+    fn backward_owned(&self, dst: Self::DstOwned) -> Self::SrcOwned
+    where
+        Self::SrcOwned: From<Self::DstOwned>
+    {
+        dst.into()
     }
 }
 
@@ -69,7 +77,8 @@ where
     >,
     for<'p> M::Dst<'p>: From<M::Src<'p>>,
     for<'s> M::SrcBorrow<'s>: From<M::DstBorrow<'s>>,
-    M::DstOwned: From<M::SrcOwned>,
+    M::DstOwned: From<M::SrcOwned> + Clone,
+    Inner::GType: From<<M as Mapper>::DstOwned>,
 {
     type Type<'p>
         = M::Dst<'p>
@@ -108,6 +117,17 @@ where
     {
         let src: Inner::SType<'s> = self.mapper.backward(v);
         self.inner.serialize(src, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let src: Inner::GType = self.mapper.backward_owned(v);
+        self.inner.serialize_gen(src, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
@@ -178,6 +198,16 @@ where
         I: 's,
     {
         self.inner.serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        self.inner.serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
@@ -295,6 +325,16 @@ where
         self.inner.serialize(v, data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        self.inner.serialize_gen(v, data, pos)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         *self.lhs.as_mut() = self.rhs;
         self.inner.generate(g)
@@ -358,6 +398,16 @@ where
         I: 's,
     {
         self.1.serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        self.1.serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
@@ -476,6 +526,16 @@ where
         I: 's,
     {
         self.1.serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        self.1.serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {

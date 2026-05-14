@@ -613,17 +613,39 @@ impl<'a> NominalCtx<'a> {
             .map(|(field, name)| self.field_borrow_expr(quote! { v.#name }, &field.comb))
             .collect();
         let tuple_expr = self.build_raw_expr_from_fields(field_shape, &field_exprs);
+
+        let owned_field_exprs: Vec<_> = fields
+            .iter()
+            .zip(field_names.iter())
+            .map(|(field, name)| self.field_from_expr(quote! { v.#name }, &field.comb))
+            .collect();
+        let owned_tuple_expr = self.build_raw_expr_from_fields(field_shape, &owned_field_exprs);
+
         let from_struct = self.struct_to_tuple_impl(&type_name, &tuple_type_borrow, tuple_expr);
 
         self.from_impls.push(from_tuple);
         self.from_impls.push(from_struct);
+        
+        if !analysis.borrow_by_value && !analysis.needs_lifetime {
+            self.from_impls.push(quote! {
+                impl<'a> From<#type_name> for #tuple_type {
+                    fn from(v: #type_name) -> Self { #owned_tuple_expr }
+                }
+            });
+        }
 
         if analysis.needs_lifetime {
             let field_assigns_owned = self.build_field_assigns(&field_names, fields, &tuple_exprs);
+
             self.from_impls.push(quote! {
                 impl From<#tuple_type_owned> for #owned_name {
                     fn from(src: #tuple_type_owned) -> Self {
                         Self { #(#field_assigns_owned),* }
+                    }
+                }
+                impl From<#owned_name> for #tuple_type_owned {
+                    fn from(v: #owned_name) -> Self {
+                        #owned_tuple_expr
                     }
                 }
             });

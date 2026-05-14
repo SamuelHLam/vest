@@ -479,44 +479,60 @@ fn lower_choice_in_env(
 fn lower_choice_with_tag(
     depend_id: &str,
     choices: &Choices,
+    // default: &Option<Choices>,
     ctx: &CodegenCtx,
     enum_bindings: &EnumBindings,
 ) -> Option<CombIR> {
-    let branches = match choices {
+    match choices {
         Choices::Ints(choices) => {
-            lower_tagged_choices(choices, ctx, enum_bindings, choice_int_tag_value)
+            let branches = lower_tagged_choices(choices, ctx, enum_bindings, choice_int_tag_value)?;
+            Some(CombIR::Dispatch {
+                tag: depend_id.to_string(),
+                branches,
+                default: None,
+            })
         }
         Choices::Arrays(choices) => {
-            lower_tagged_choices(choices, ctx, enum_bindings, choice_array_tag_value)
+            let branches = lower_tagged_choices(choices, ctx, enum_bindings, choice_array_tag_value)?;
+            Some(CombIR::Dispatch {
+                tag: depend_id.to_string(),
+                branches,
+                default: None,
+            })
         }
         Choices::Enums(choices) => {
             let enum_ty = enum_bindings.get(depend_id)?;
-            choices
+            // search for the wildcard "_" before collecting the remaining
+            let default = choices.iter().find(|(variant, _)| variant == "_").map(|(_, comb)| Box::new(lower_combinator_in_env(comb, ctx, enum_bindings)));
+            let branches = choices
                 .iter()
                 .enumerate()
-                .map(|(idx, (variant, comb))| {
-                    let tag = if variant == "_" {
-                        TagValue::Wildcard
+                .flat_map(|(idx, (variant, comb))| {
+                    if variant == "_" {
+                        None
                     } else {
-                        TagValue::Enum {
+                        let tag = TagValue::Enum {
                             ty: enum_ty.clone(),
                             variant: variant.clone(),
-                        }
-                    };
-                    Some(DispatchBranchIR {
-                        variant_name: variant_name_from_tag(&tag, idx),
-                        tag,
-                        comb: lower_combinator_in_env(comb, ctx, enum_bindings),
-                    })
+                        };
+            
+                        Some(DispatchBranchIR {
+                            variant_name: variant_name_from_tag(&tag, idx),
+                            tag,
+                            comb: lower_combinator_in_env(comb, ctx, enum_bindings),
+                        })
+                    }
                 })
-                .collect()
+                .collect();
+            Some(CombIR::Dispatch {
+                tag: depend_id.to_string(),
+                branches,
+                default,
+            })
         }
-    }?;
+    }
 
-    Some(CombIR::Dispatch {
-        tag: depend_id.to_string(),
-        branches,
-    })
+    
 }
 
 fn lower_tagged_choices<T, F>(
@@ -545,7 +561,7 @@ where
 fn choice_int_tag_value(tag: &Option<ConstraintElem>) -> Option<TagValue> {
     match tag {
         Some(ConstraintElem::Single(value)) => Some(TagValue::Int(*value)),
-        Some(ConstraintElem::Range { .. }) | None => None,
+        Some(ConstraintElem::Range { .. }) | None => unimplemented!(),
     }
 }
 
@@ -627,6 +643,6 @@ fn const_array_to_bytes(values: &ConstArray) -> Option<Vec<u8>> {
         ConstArray::Char(bytes) => Some(bytes.clone()),
         ConstArray::Int(ints) => Some(ints.iter().map(|&value| value as u8).collect()),
         ConstArray::Repeat(value, count) => Some(vec![*value as u8; *count]),
-        ConstArray::Wildcard => None,
+        ConstArray::Wildcard => unimplemented!(),
     }
 }

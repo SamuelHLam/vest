@@ -663,6 +663,8 @@ impl<'a> Combinator<'a, &'a [u8], Vec<u8>> for {name}Combinator {{
     {{ <_ as Combinator<'a, &'a [u8],Vec<u8>>>::parse(&self.0, s) }}
     fn serialize(&self, v: Self::SType, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
     {{ <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize(&self.0, v, data, pos) }}
+     fn serialize_gen(&self, v: Self::GType, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
+    {{ <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize_gen(&self.0, v, data, pos) }}
 }}
 "#
                     )
@@ -3732,6 +3734,8 @@ macro_rules! impl_wrapper_combinator {
                 { <_ as Combinator<'a, &'a [u8], Vec<u8>>>::parse(&self.0, s) }
                 fn serialize(&self, v: Self::SType, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
                 { <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize(&self.0, v, data, pos) }
+                 fn serialize_gen(&self, v: Self::GType, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
+                { <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize_gen(&self.0, v, data, pos) }
             }
         } // verus!
     };
@@ -3928,6 +3932,22 @@ pub fn serialize_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'
     <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize(&combinator, v, data, pos)
 }}
 
+pub fn serialize_gen_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], &mut Vec<u8>>>::GType, data: &mut Vec<u8>, pos: usize) -> (o: SResult<usize, SerializeError>)
+    requires
+        pos <= old(data)@.len() <= usize::MAX,
+        spec_{name}().wf(v@),
+    ensures
+        o matches Ok(n) ==> {{
+            &&& data@.len() == old(data)@.len()
+            &&& pos <= usize::MAX - n && pos + n <= data@.len()
+            &&& n == spec_{name}().spec_serialize(v@).len()
+            &&& data@ == seq_splice(old(data)@, pos, spec_{name}().spec_serialize(v@))
+        }},
+{{
+    let combinator = {name}();
+    <_ as Combinator<'a, &'a [u8], Vec<u8>>>::serialize_gen(&combinator, v, data, pos)
+}}
+
 pub fn {name}_len<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], Vec<u8>>>::SType) -> (serialize_len: usize)
     requires
         spec_{name}().wf(v@),
@@ -4077,6 +4097,20 @@ pub fn serialize_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'
     combinator.serialize(v, data, pos)
 }}
 
+    pub fn serialize_gen_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], Vec<u8>>>::GType, data: &mut Vec<u8>, pos: usize, {exec_params}) -> (o: SResult<usize, SerializeError>)
+{serialize_requires}
+    ensures
+        o matches Ok(n) ==> {{
+            &&& data@.len() == old(data)@.len()
+            &&& pos <= usize::MAX - n && pos + n <= data@.len()
+            &&& n == spec_{name}({args_view}).spec_serialize(v@).len()
+            &&& data@ == seq_splice(old(data)@, pos, spec_{name}({args_view}).spec_serialize(v@))
+        }},
+{{
+    let combinator = {name}( {args} );
+    combinator.serialize_gen(v, data, pos)
+}}
+
 pub fn {name}_len<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], Vec<u8>>>::SType, {exec_params}) -> (serialize_len: usize)
 {len_requires}
     ensures
@@ -4158,6 +4192,22 @@ pub fn serialize_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'
 {{
     let combinator = {name}();
     combinator.serialize(v, data, pos)
+}}
+
+pub fn serialize_gen_{name}<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], Vec<u8>>>::GType, data: &mut Vec<u8>, pos: usize) -> (o: SResult<usize, SerializeError>)
+    requires
+        pos <= old(data)@.len() <= usize::MAX,
+        spec_{name}().wf(v@),
+    ensures
+        o matches Ok(n) ==> {{
+            &&& data@.len() == old(data)@.len()
+            &&& pos <= usize::MAX - n && pos + n <= data@.len()
+            &&& n == spec_{name}().spec_serialize(v@).len()
+            &&& data@ == seq_splice(old(data)@, pos, spec_{name}().spec_serialize(v@))
+        }},
+{{
+    let combinator = {name}();
+    combinator.serialize_gen(v, data, pos)
 }}
 
 pub fn {name}_len<'a>(v: <{upper_caml_name}Combinator as Combinator<'a, &'a [u8], Vec<u8>>>::SType) -> (serialize_len: usize)

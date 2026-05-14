@@ -400,7 +400,7 @@ fn collect_used_names(comb: &CombIR, names: &mut BTreeSet<String>) {
             collect_used_names(inner, names);
             collect_used_names(suffix, names);
         }
-        CombIR::Dispatch { tag, branches } => {
+        CombIR::Dispatch { tag, branches, default } => {
             names.insert(tag.clone());
             for branch in branches {
                 collect_used_names(&branch.comb, names);

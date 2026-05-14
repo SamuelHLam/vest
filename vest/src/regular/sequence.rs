@@ -40,6 +40,7 @@ where
     Dep: DepCombinator<Fst, I, O>,
     for<'p, 's> Fst::SType<'s>: FromRef<'s, Fst::Type<'p>> + Copy,
     for<'s> Fst::SType<'s>: FromRef<'s, Fst::GType>,
+    Fst::GType : Clone,
 {
     type Type<'p>
         = (Fst::Type<'p>, <Dep::Out as Combinator<I, O>>::Type<'p>)
@@ -78,9 +79,22 @@ where
     where
         I: 's,
     {
-        let n = self.fst.serialize(v.0, data, pos)?;
         let dep_snd = self.snd.dep_snd(v.0);
+        let n = self.fst.serialize(v.0, data, pos)?;
         let m = dep_snd.serialize(v.1, data, pos + n)?;
+        Ok(n + m)
+    }
+
+    fn serialize_gen(
+        &self,
+        mut v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let n = self.fst.serialize_gen(v.0.clone(), data, pos)?;
+        let dep_snd = self.snd.dep_snd_gen(&mut v.0);
+        let m = dep_snd.serialize_gen(v.1, data, pos + n)?;
         Ok(n + m)
     }
 
@@ -156,6 +170,18 @@ where
     {
         let n = self.0.serialize(v.0, data, pos)?;
         let m = self.1.serialize(v.1, data, pos + n)?;
+        Ok(n + m)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let n = self.0.serialize_gen(v.0, data, pos)?;
+        let m = self.1.serialize_gen(v.1, data, pos + n)?;
         Ok(n + m)
     }
 
@@ -242,6 +268,18 @@ where
         Ok(n + m)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let n = self.0.serialize_unit(data, pos)?;
+        let m = self.1.serialize_gen(v, data, pos + n)?;
+        Ok(n + m)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let g1 = self.0.length_unit();
         let (g2, v2) = self.1.generate(g)?;
@@ -302,6 +340,18 @@ where
         I: 's,
     {
         let n = self.0.serialize(v, data, pos)?;
+        let m = self.1.serialize_unit(data, pos + n)?;
+        Ok(n + m)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        let n = self.0.serialize_gen(v, data, pos)?;
         let m = self.1.serialize_unit(data, pos + n)?;
         Ok(n + m)
     }

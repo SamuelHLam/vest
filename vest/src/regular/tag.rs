@@ -96,6 +96,16 @@ where
         self.inner.serialize(self.tag.into(), data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        _: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        self.inner.serialize(self.tag.into(), data, pos)
+    }
+
     fn generate(&mut self, _g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let n = self.length(());
         Ok((n, ()))

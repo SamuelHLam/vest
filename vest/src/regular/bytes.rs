@@ -71,6 +71,21 @@ where
         }
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        if v.len() <= data.len() && pos <= data.len().saturating_sub(v.len()) {
+            data.set_range_gen(pos, &v);
+            Ok(self.0)
+        } else {
+            Err(SerializeError::InsufficientBuffer)
+        }
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         Ok((self.0, O::generate(self.0, g)))
     }
@@ -130,6 +145,21 @@ where
         }
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        if v.len() <= data.len().saturating_sub(pos) {
+            data.set_range_gen(pos, &v);
+            Ok(N)
+        } else {
+            Err(SerializeError::InsufficientBuffer)
+        }
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         Ok((N, O::generate(N, g)))
     }
@@ -175,6 +205,21 @@ impl<I: VestInput + ?Sized, O: VestOutput<I>> Combinator<I, O> for Tail {
     {
         if v.len() <= data.len().saturating_sub(pos) {
             data.set_range(pos, &v);
+            Ok(v.len())
+        } else {
+            Err(SerializeError::InsufficientBuffer)
+        }
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        if v.len() <= data.len().saturating_sub(pos) {
+            data.set_range_gen(pos, &v);
             Ok(v.len())
         } else {
             Err(SerializeError::InsufficientBuffer)

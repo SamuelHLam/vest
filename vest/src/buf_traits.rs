@@ -37,6 +37,9 @@ pub trait VestOutput<I: ?Sized> {
     /// Copy `input` to `self` starting at index `i`.
     fn set_range(&mut self, i: usize, input: &I);
 
+    /// Variant of set_range() that works on owned types (GType).
+    fn set_range_gen(&mut self, i: usize, input: &Self);
+
     /// Generate a value of `Self` using the provided generator.
     fn generate(i: usize, g: &mut GenSt) -> Self;
 }
@@ -75,6 +78,16 @@ where
     }
 
     fn set_range(&mut self, i: usize, input: &I) {
+        let bytes = input.as_byte_slice();
+        assert!(i <= self.len(), "set_range start out of bounds");
+        assert!(
+            i + bytes.len() <= self.len(),
+            "set_range would write past end of buffer"
+        );
+        self[i..i + bytes.len()].copy_from_slice(bytes);
+    }
+
+    fn set_range_gen(&mut self, i: usize, input: &Self) {
         let bytes = input.as_byte_slice();
         assert!(i <= self.len(), "set_range start out of bounds");
         assert!(

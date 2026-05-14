@@ -168,6 +168,7 @@ pub enum CombIR {
     Dispatch {
         tag: String,
         branches: Vec<DispatchBranchIR>,
+        default: Option<Box<CombIR>>,
     },
     Opt(Box<CombIR>),
     RepeatN {

@@ -35,8 +35,8 @@ pub trait FromRef<'s, T> {
     /// Convert from a reference to the serialization type.
     fn ref_to_stype(val: &'s T) -> Self;
 
-    /// Convert from a mutable reference of [`T`] to a mutable reference of the serialization type.
-    fn mut_ref_to_mut_stype(val: &mut T) -> &mut Self;
+    // Convert from a mutable reference of [`T`] to a mutable reference of the serialization type.
+    // fn mut_ref_to_mut_stype(val: &'s mut T) -> Self;
 }
 
 /// Blanket implementation for Copy types where SType equals Type.
@@ -45,9 +45,9 @@ impl<'s, T: Copy> FromRef<'s, T> for T {
         *val
     }
 
-    fn mut_ref_to_mut_stype(val: &mut T) -> &mut Self {
-        val
-    }
+    // fn mut_ref_to_mut_stype(val: &'s mut T) -> Self {
+    //     *val
+    // }
 }
 
 /// Implementation for parser and serializer combinators. A combinator's view must be a
@@ -122,6 +122,8 @@ where
     /// total function (with infinite buffer size) and will never fail.
     fn serialize<'s>(
         &self,
+        // Some of SType or & GType
+        // or implement extra GType to SType conversion in each combinator
         v: Self::SType<'s>,
         buf: &mut O,
         pos: usize,
@@ -129,6 +131,15 @@ where
     where
         I: 's;
 
+    /// Special-case serialize function that operates upon GType instead of SType.
+    /// Only used in round-trip generate -> serialize -> parsing tests
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        buf: &mut O,
+        pos: usize,
+    ) -> SResult<usize, SerializeError>;
+    
     /// The generation function.
     /// This function generates a value of type `Self::GType` along with the
     /// number of bytes that would be produced when serializing this value.
@@ -148,13 +159,13 @@ where
         true
     }
 
-    /// Convert from generated type to [`Self::SType`] for serialization.
-    fn ref_gtype_to_stype<'s>(v: &'s Self::GType) -> Self::SType<'s>
-    where
-        Self::SType<'s>: FromRef<'s, Self::GType>,
-    {
-        Self::SType::ref_to_stype(v)
-    }
+    // Convert from generated type to [`Self::SType`] for serialization.
+    // fn ref_gtype_to_stype<'s>(v: &'s Self::GType) -> Self::SType<'s>
+    // where
+    //     Self::SType<'s>: FromRef<'s, Self::GType>,
+    // {
+    //     Self::SType::ref_to_stype(v)
+    // }
 }
 
 impl<I, O, C: Combinator<I, O>> Combinator<I, O> for &mut C
@@ -198,6 +209,16 @@ where
         I: 's,
     {
         (**self).serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        (**self).serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
@@ -253,6 +274,16 @@ where
         I: 's,
     {
         (**self).serialize(v, data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        (**self).serialize_gen(v, data, pos)
     }
 
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {

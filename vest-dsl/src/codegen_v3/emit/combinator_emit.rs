@@ -64,7 +64,7 @@ impl<'a> DefinitionEmitter<'a> {
                 let suffix_tokens = self.comb_expr_tokens(suffix, env, &child_path(path, 1));
                 quote! { Terminated(#inner_tokens, #suffix_tokens) }
             }
-            CombIR::Dispatch { tag, branches } => {
+            CombIR::Dispatch { tag, branches, default} => {
                 let tag_tokens = self.tag_ref_tokens(tag, env);
                 let helper = self.dispatch_helper_ident(path);
                 let branch_tokens: Vec<_> = branches
@@ -78,7 +78,12 @@ impl<'a> DefinitionEmitter<'a> {
                         quote! { (#tag_value, #helper::#variant(#comb_tokens)) }
                     })
                     .collect();
-                quote! { Dispatch::new(#tag_tokens, [#(#branch_tokens),*]) }
+                let default_tokens = default.as_ref().map(|comb| self.comb_expr_tokens(&*comb, env, path));
+                let default = match default_tokens {
+                    Some(token) => quote! {Some(#token)},
+                    None => quote!{None}
+                };
+                quote! { Dispatch::new(#tag_tokens, [#(#branch_tokens),*], #default) }
             }
             CombIR::Opt(inner) => {
                 let inner_tokens = self.comb_expr_tokens(inner, env, &child_path(path, 0));
@@ -548,7 +553,7 @@ impl<'a> DefinitionEmitter<'a> {
                 );
                 quote! { Terminated<#inner_type, #suffix_type> }
             }
-            CombIR::Dispatch { branches, tag } => {
+            CombIR::Dispatch { branches, tag, default} => {
                 if branches.is_empty() {
                     quote! { Fail }
                 } else {

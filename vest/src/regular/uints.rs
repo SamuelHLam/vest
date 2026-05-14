@@ -150,6 +150,16 @@ where
         serialize_int::<1, I, O>([v], data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        serialize_int::<1, I, O>([v], data, pos)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let v: u8 = g.rng.random();
         Ok((1, v))
@@ -193,6 +203,16 @@ where
     ) -> Result<usize, SerializeError>
     where
         I: 's,
+    {
+        serialize_int::<2, I, O>(v.to_le_bytes(), data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
     {
         serialize_int::<2, I, O>(v.to_le_bytes(), data, pos)
     }
@@ -244,6 +264,16 @@ where
         serialize_int::<4, I, O>(v.to_le_bytes(), data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        serialize_int::<4, I, O>(v.to_le_bytes(), data, pos)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let v: u32 = g.rng.random();
         Ok((4, v))
@@ -287,6 +317,16 @@ where
     ) -> Result<usize, SerializeError>
     where
         I: 's,
+    {
+        serialize_int::<8, I, O>(v.to_le_bytes(), data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
     {
         serialize_int::<8, I, O>(v.to_le_bytes(), data, pos)
     }
@@ -338,6 +378,16 @@ where
         serialize_int::<2, I, O>(v.to_be_bytes(), data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        serialize_int::<2, I, O>(v.to_be_bytes(), data, pos)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let v: u16 = g.rng.random();
         Ok((2, v))
@@ -381,6 +431,16 @@ where
     ) -> Result<usize, SerializeError>
     where
         I: 's,
+    {
+        serialize_int::<4, I, O>(v.to_be_bytes(), data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
     {
         serialize_int::<4, I, O>(v.to_be_bytes(), data, pos)
     }
@@ -432,6 +492,16 @@ where
         serialize_int::<8, I, O>(v.to_be_bytes(), data, pos)
     }
 
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
+    {
+        serialize_int::<8, I, O>(v.to_be_bytes(), data, pos)
+    }
+
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         let v: u64 = g.rng.random();
         Ok((8, v))
@@ -475,6 +545,16 @@ where
     ) -> Result<usize, SerializeError>
     where
         I: 's,
+    {
+        serialize_int::<3, I, O>(v.to_le_bytes(), data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
     {
         serialize_int::<3, I, O>(v.to_le_bytes(), data, pos)
     }
@@ -523,6 +603,16 @@ where
     ) -> Result<usize, SerializeError>
     where
         I: 's,
+    {
+        serialize_int::<3, I, O>(v.to_le_bytes(), data, pos)
+    }
+
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut O,
+        pos: usize,
+    ) -> Result<usize, SerializeError>
     {
         serialize_int::<3, I, O>(v.to_le_bytes(), data, pos)
     }

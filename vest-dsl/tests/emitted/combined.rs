@@ -102,6 +102,12 @@ impl<'s> From<&'s Packet> for (Header, (u16, &'s [Record])) {
     }
 }
 
+impl<'a> From<Packet> for (Header, (u16, Vec<Record>)) {
+    fn from(v: Packet) -> Self {
+        (v.header, (v.payload_len, v.payload))
+    }
+}
+
 pub struct PacketMapper;
 impl Mapper for PacketMapper {
     type Src<'p> = (Header, (u16, Vec<Record>));
@@ -180,6 +186,16 @@ pub fn serialize_Header<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for Header combinator (owned version)
+pub fn serialize_gen_Header(
+    v: Header,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = Header();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for Header combinator
 pub fn Header_len<'s>(v: Header) -> usize {
     let combinator = Header();
@@ -208,6 +224,16 @@ pub fn serialize_Record<'s>(
     combinator.serialize(v, data, pos)
 }
 
+///Serialize function for Record combinator (owned version)
+pub fn serialize_gen_Record(
+    v: Record,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = Record();
+    combinator.serialize_gen(v, data, pos)
+}
+
 ///Length function for Record combinator
 pub fn Record_len<'s>(v: Record) -> usize {
     let combinator = Record();
@@ -234,6 +260,16 @@ pub fn serialize_Packet<'s>(
 ) -> Result<usize, SerializeError> {
     let combinator = Packet();
     combinator.serialize(v, data, pos)
+}
+
+///Serialize function for Packet combinator (owned version)
+pub fn serialize_gen_Packet(
+    v: Packet,
+    data: &mut Vec<u8>,
+    pos: usize,
+) -> Result<usize, SerializeError> {
+    let combinator = Packet();
+    combinator.serialize_gen(v, data, pos)
 }
 
 ///Length function for Packet combinator
@@ -278,6 +314,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -319,6 +363,14 @@ where
     {
         self.0.serialize(v, data, pos)
     }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
+    }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
     }
@@ -359,6 +411,14 @@ where
         [u8]: 's,
     {
         self.0.serialize(v, data, pos)
+    }
+    fn serialize_gen(
+        &self,
+        v: Self::GType,
+        data: &mut Vec<u8>,
+        pos: usize,
+    ) -> Result<usize, SerializeError> {
+        self.0.serialize_gen(v, data, pos)
     }
     fn generate(&mut self, g: &mut GenSt) -> GResult<Self::GType, GenerateError> {
         self.0.generate(g)
