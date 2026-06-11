@@ -54,6 +54,7 @@ pub(super) struct DependentPairHelperSpec<'a> {
 pub(super) struct DispatchEnumHelperSpec<'a> {
     pub path: Vec<usize>,
     pub branches: &'a [DispatchBranchIR],
+    pub default: &'a Option<Box<CombIR>>,
     pub env: BindingEnv,
 }
 
@@ -188,13 +189,14 @@ impl<'ir, 'defs, 'analysis> HelperSpecCollector<'ir, 'defs, 'analysis> {
                 self.visit(inner, env, &child_path(path, 0));
                 self.visit(suffix, env, &child_path(path, 1));
             }
-            CombIR::Dispatch { branches, .. } => {
+            CombIR::Dispatch { branches, tag: _, default } => {
                 let key = dispatch_helper_key(path);
                 if self.seen_dispatch.insert(key) {
                     self.ordered
                         .push(HelperSpec::Dispatch(DispatchEnumHelperSpec {
                             path: path.to_vec(),
                             branches,
+                            default,
                             env: env.clone(),
                         }));
                 }

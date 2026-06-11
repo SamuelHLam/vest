@@ -720,6 +720,23 @@ pub(super) fn value_shape_field_expr_tokens(
     }
 }
 
+
+pub(super) fn value_shape_owned_field_expr_tokens(
+    expr: TokenStream,
+    comb: &CombIR,
+    def: &CombDef,
+    names: &NamesMap,
+) -> TokenStream {
+    if let Some(inner) = wrapper_inner_for(comb, WrapperUse::ValueShape) {
+        return value_shape_owned_field_expr_tokens(expr, inner, def, names);
+    }
+
+    match comb {
+        CombIR::Tag { .. } => quote! { () },
+        _ => expr,
+    }
+}
+
 pub(super) fn value_shape_borrow_expr_tokens(
     access: TokenStream,
     comb: &CombIR,
@@ -1081,7 +1098,7 @@ pub(super) fn value_kind_type_tokens(kind: &ValType, names: &NamesMap) -> TokenS
 
 pub(super) fn value_kind_to_usize_tokens(kind: &ValType, value: TokenStream) -> TokenStream {
     match kind {
-        ValType::UInt(UIntWidth::U24) => quote! { #value.as_u32() as usize },
+        ValType::UInt(UIntWidth::U24) => quote! { (#value).as_u32() as usize },
         _ => quote! { #value as usize },
     }
 }

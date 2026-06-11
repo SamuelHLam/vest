@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 pub fn format_rust_code(tokens: TokenStream) -> Result<String, FormatError> {
     let code = tokens.to_string();
     let syntax_tree: syn::File = syn::parse_str(&code)
-        .map_err(|e| FormatError::ParseError(format!("Failed to parse generated code: {}", e)))?;
+        .map_err(|e| { eprintln!("{:?}", code); FormatError::ParseError(format!("Failed to parse generated code: {}", e)) })?;
     let formatted = prettyplease::unparse(&syntax_tree);
     Ok(add_blank_lines_between_items(&formatted))
 }

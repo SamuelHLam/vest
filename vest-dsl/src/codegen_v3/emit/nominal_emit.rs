@@ -9,7 +9,7 @@ use super::super::{
 use super::super::{DefinitionNames, EnumVariantIR, NamesMap, TagValue};
 use super::module_emit::{
     build_nested_pair_expr, build_nested_pair_type, tuple_field_access, value_shape_borrow_expr_tokens,
-    value_shape_field_expr_tokens,
+    value_shape_field_expr_tokens, value_shape_owned_field_expr_tokens,
 };
 
 #[derive(Debug, Clone)]
@@ -210,15 +210,32 @@ impl<'a> NominalCtx<'a> {
                     self.generate_alias_type(comb);
                 }
             }
-            CombIR::Dispatch { branches, .. } => {
-                let variants: Vec<_> = branches
+            CombIR::Dispatch { branches, tag: _, default } => {
+                if default.is_none() {
+                    let variants: Vec<_> = branches
                     .iter()
                     .map(|branch| VariantInfo {
                         name: branch.variant_name.clone(),
                         comb: &branch.comb,
                     })
                     .collect();
-                self.generate_enum_type(&variants);
+                    self.generate_enum_type(&variants);
+                }
+                else {
+                    let default_info = VariantInfo {
+                        name: String::from("__default"),
+                        comb: &(*default.as_ref().unwrap())
+                    };
+                    let variants: Vec<_> = branches
+                    .iter()
+                    .map(|branch| VariantInfo {
+                        name: branch.variant_name.clone(),
+                        comb: &branch.comb,
+                    })
+                    .chain(std::iter::once(default_info))
+                    .collect();
+                    self.generate_enum_type(&variants);
+                }
             }
             CombIR::Enum {
                 inner, variants, ..
@@ -512,6 +529,10 @@ impl<'a> NominalCtx<'a> {
         value_shape_field_expr_tokens(expr, comb, self.def, self.names)
     }
 
+    fn field_from_owned_expr(&self, expr: TokenStream, comb: &CombIR) -> TokenStream {
+        value_shape_owned_field_expr_tokens(expr, comb, self.def, self.names)
+    }
+
     fn generate_struct_type(
         &mut self,
         comb: &CombIR,
@@ -617,7 +638,7 @@ impl<'a> NominalCtx<'a> {
         let owned_field_exprs: Vec<_> = fields
             .iter()
             .zip(field_names.iter())
-            .map(|(field, name)| self.field_from_expr(quote! { v.#name }, &field.comb))
+            .map(|(field, name)| self.field_from_owned_expr(quote! { v.#name }, &field.comb))
             .collect();
         let owned_tuple_expr = self.build_raw_expr_from_fields(field_shape, &owned_field_exprs);
 
@@ -628,7 +649,7 @@ impl<'a> NominalCtx<'a> {
         
         if !analysis.borrow_by_value && !analysis.needs_lifetime {
             self.from_impls.push(quote! {
-                impl<'a> From<#type_name> for #tuple_type {
+                impl<'a> From<#type_name> for #tuple_type_owned {
                     fn from(v: #type_name) -> Self { #owned_tuple_expr }
                 }
             });
@@ -770,9 +791,11 @@ impl<'a> NominalCtx<'a> {
             .collect();
 
         self.type_items.push(quote! {
+            #[repr(u64)]
             #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             pub enum #type_name {
-                #(#variant_defs),*
+                #(#variant_defs),*,
+                Unknown(u64)
             }
         });
         self.from_impls.push(quote! {
@@ -788,7 +811,7 @@ impl<'a> NominalCtx<'a> {
         self.from_impls.push(quote! {
             impl From<#type_name> for #raw_type {
                 fn from(v: #type_name) -> Self {
-                    v as #raw_type
+                    #raw_type::from(v)
                 }
             }
         });

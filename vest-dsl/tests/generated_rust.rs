@@ -9,7 +9,7 @@ mod emitted;
 
 use emitted::combined;
 use emitted::tlv;
-// use emitted::tls;
+use emitted::tls;
 use vest_lib::properties::*;
 
 #[test]
@@ -66,17 +66,17 @@ fn tlv_msg_generate_roundtrip() {
     }
 }
 
-// #[test]
-// fn tls_msg_generate_roundtrip() {
-//     for seed in 0..16u64 {
-//         let (reported_len, handshake) = tls::generate_handshake(&mut GenSt::new(seed)).expect("generate handshake");
+#[test]
+fn tls_msg_generate_roundtrip() {
+    for seed in 0..16u64 {
+        let (reported_len, handshake) = tls::generate_handshake(&mut GenSt::new(seed)).expect("generate handshake");
 
-//         let mut buf = vec![0u8; reported_len];
-//         let written = tls::serialize_gen_handshake(handshake, &mut buf, 0).expect("serialize handshake");
-//         assert_eq!(written, reported_len);
+        let mut buf = vec![0u8; reported_len];
+        let written = tls::serialize_gen_handshake(handshake, &mut buf, 0).expect("serialize handshake");
+        assert_eq!(written, reported_len);
 
-//         let (consumed, parsed) = tls::parse_handshake(&buf).expect("parse handshake");
-//         assert_eq!(consumed, written);
-//         // assert_eq!(parsed, msg);
-//     }
-// }
+        let (consumed, parsed) = tls::parse_handshake(&buf).expect("parse handshake");
+        assert_eq!(consumed, written);
+        // assert_eq!(parsed, msg);
+    }
+}

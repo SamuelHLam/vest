@@ -4,7 +4,7 @@ use quote::{format_ident, quote};
 use super::super::analysis::value_kind_for_comb;
 use super::super::helper_specs::{child_path, BindingEnv, BindingUse, ValueBinding};
 use super::super::{
-    const_ident_for_int, CombDef, CombIR, ParamRef, PredicateIR, TagValue, UIntWidth, ValType,
+    const_ident_for_int, CombDef, CombIR, ParamRef, PredicateIR, DispatchBranchIR, TagValue, UIntWidth, ValType,
 };
 use super::module_emit::{
     build_nested_pair_expr, build_nested_pair_type, call_tokens, dispatch_tag_type_tokens_for_ref,
@@ -78,9 +78,10 @@ impl<'a> DefinitionEmitter<'a> {
                         quote! { (#tag_value, #helper::#variant(#comb_tokens)) }
                     })
                     .collect();
-                let default_tokens = default.as_ref().map(|comb| self.comb_expr_tokens(&*comb, env, path));
+                let default_tokens = default.as_ref().map(|comb| self.comb_expr_tokens(&*comb, env, &child_path(path, branch_tokens.len())));
+                let variant = dispatch_variant_ident(branch_tokens.len());
                 let default = match default_tokens {
-                    Some(token) => quote! {Some(#token)},
+                    Some(token) => quote! {Some(#helper::#variant(#token))},
                     None => quote!{None}
                 };
                 quote! { Dispatch::new(#tag_tokens, [#(#branch_tokens),*], #default) }
@@ -553,7 +554,7 @@ impl<'a> DefinitionEmitter<'a> {
                 );
                 quote! { Terminated<#inner_type, #suffix_type> }
             }
-            CombIR::Dispatch { branches, tag, default} => {
+            CombIR::Dispatch { branches, tag, default: _} => {
                 if branches.is_empty() {
                     quote! { Fail }
                 } else {

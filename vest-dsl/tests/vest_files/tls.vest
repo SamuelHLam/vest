@@ -253,523 +253,523 @@ padding_extension(@ext_len: u16) = {
 // } SessionTicket;
 // session_ticket = opaque_0_ffff
 
-psk_identity = {
-  identity: opaque_1_ffff,
-  obfuscated_ticket_age: u32,
-}
-
-psk_binder_entry = {
-  @l: u8 | { 32..255 },
-  entries: [u8; @l],
-}
-
-psk_identities = bounded_vec!(u16 | 7..0xffff, psk_identity)
-
-psk_binder_entries = bounded_vec!(u16 | 33..0xffff, psk_binder_entry)
-
-// TODO: binders:  A series of HMAC values, one for each value in the
-// identities list and in the same order, computed as described
-// below.
-offered_psks = {
-  identities: psk_identities,
-  binders: psk_binder_entries,
-}
-
-pre_shared_key_client_extension = {
-  offers: offered_psks,
-}
-
-pre_shared_key_server_extension = {
-  selected_identity: u16,
-}
-
-early_data_indication_new_session_ticket = {
-  max_early_data_size: u32,
-}
-
-supported_versions_client = bounded_vec!(u8 | 2..254, protocol_version)
-
-supported_versions_server = protocol_version
-
-// struct {
-//   opaque cookie<1..2^16-1>;
-// } Cookie;
-cookie = opaque_1_ffff
-
-psk_key_exchange_mode = enum {
-  PSK_KE = 0,
-  PSK_DHE_KE = 1,
-  ...
-}
-
-psk_key_exchange_modes = bounded_vec!(u8 | 1..0xff, psk_key_exchange_mode)
-
-distinguished_name = opaque_1_ffff
-
-certificate_authorities_extension = bounded_vec!(u16 | 3..0xffff, distinguished_name)
-
-oid_filter = {
-  certificate_extension_oid: opaque_1_ff,
-  certificate_extension_values: opaque_0_ffff,
-}
-
-oid_filter_extension = bounded_vec!(u16, oid_filter)
-
-// uncompressed_point_representation32 = {
-//   const legacy_form: u8 = 4, 
-//   x: [u8; 32],
-//   y: [u8; 32],
+// psk_identity = {
+//   identity: opaque_1_ffff,
+//   obfuscated_ticket_age: u32,
 // }
-// 
-// uncompressed_point_representation48 = {
-//   const legacy_form: u8 = 4,
-//   x: [u8; 48],
-//   y: [u8; 48],
+
+// psk_binder_entry = {
+//   @l: u8 | { 32..255 },
+//   entries: [u8; @l],
 // }
-// 
-// uncompressed_point_representation66 = {
-//   const legacy_form: u8 = 4,
-//   x: [u8; 66],
-//   y: [u8; 66],
+
+// psk_identities = bounded_vec!(u16 | 7..0xffff, psk_identity)
+
+// psk_binder_entries = bounded_vec!(u16 | 33..0xffff, psk_binder_entry)
+
+// // TODO: binders:  A series of HMAC values, one for each value in the
+// // identities list and in the same order, computed as described
+// // below.
+// offered_psks = {
+//   identities: psk_identities,
+//   binders: psk_binder_entries,
 // }
-// 
-// montgomery_point32 = [u8; 32]
-// 
-// montgomery_form56 = [u8; 56]
-// 
-// sever_dh_params = {
-//   dh_p: opaque_1_ffff,
-//   dh_g: opaque_1_ffff,
-//   dh_ys: opaque_1_ffff,
+
+// pre_shared_key_client_extension = {
+//   offers: offered_psks,
 // }
-// 
-// key_exchange_data = opaque_1_ffff
 
-key_share_entry = {
-  @group: named_group,
-  @l: u16 | 1..0xffff,
-  key_exchange: [u8; @l],
-  // key_exchange: [u8; @l] >>= choose(@group) {
-  //   Secp256r1 => uncompressed_point_representation32,
-  //   Secp384r1 => uncompressed_point_representation48,
-  //   Secp521r1 => uncompressed_point_representation66,
+// pre_shared_key_server_extension = {
+//   selected_identity: u16,
+// }
 
-  //   X25519 => montgomery_point32,
-  //   X448 => montgomery_form56,
+// early_data_indication_new_session_ticket = {
+//   max_early_data_size: u32,
+// }
 
-  //   Ffdhe2048 => sever_dh_params,
-  //   Ffdhe3072 => sever_dh_params,
-  //   Ffdhe4096 => sever_dh_params,
-  //   Ffdhe6144 => sever_dh_params,
-  //   Ffdhe8192 => sever_dh_params,
+// supported_versions_client = bounded_vec!(u8 | 2..254, protocol_version)
 
-  //   _ => key_exchange_data,
-  // },
-}
+// supported_versions_server = protocol_version
 
-key_share_client_hello = bounded_vec!(u16, key_share_entry)
+// // struct {
+// //   opaque cookie<1..2^16-1>;
+// // } Cookie;
+// cookie = opaque_1_ffff
 
-unknown_extension = opaque_0_ffff
+// psk_key_exchange_mode = enum {
+//   PSK_KE = 0,
+//   PSK_DHE_KE = 1,
+//   ...
+// }
 
-empty = [u8; 0]
+// psk_key_exchange_modes = bounded_vec!(u8 | 1..0xff, psk_key_exchange_mode)
 
-client_hello_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    // popular extensions
-    ServerName => server_name_list,
-    SignatureAlgorithms => signature_scheme_list,
-    SupportedGroups => named_group_list,
-    StatusRequest => certificate_status_request,
-    ApplicationLayerProtocolNegotiation => protocol_name_list,
-    SupportedVersions => supported_versions_client,
-    KeyShare => key_share_client_hello,
-    PskKeyExchangeModes => psk_key_exchange_modes,
-    PreSharedKey => pre_shared_key_client_extension,
-    _ => client_hello_extension_rest(@ext_len, @extension_type),
-  },
-}
+// distinguished_name = opaque_1_ffff
 
-client_hello_extension_rest(@ext_len: u16, @extension_type: extension_type) = choose(@extension_type) {
-  MaxFragmentLength => max_fragment_length,
-  Heartbeat => heartbeat_mode,
-  SignedCertificateTimeStamp => signed_certificate_timestamp_list,
-  ClientCertificateType => client_cert_type_client_extension,
-  ServerCertificateType => server_cert_type_client_extension,
-  // Padding => padding_extension(@ext_len),
-  Padding => [u8; @ext_len],
-  Cookie => cookie,
-  CertificateAuthorities => certificate_authorities_extension,
-  OidFilters => oid_filter_extension,
-  SignatureAlgorithmsCert => signature_scheme_list,
-  // EarlyData => empty,
-  // PostHandshakeAuth => empty,
-  // UseSRTP => use_srtp_data, // Only allowed in DTLS?
-  // ECPointFormats => ec_point_format_list, // not used in TLS 1.3
-  // EncryptThenMac => empty, // not used in TLS 1.3
-  // ExtendedMasterSecret => empty, // not used in TLS 1.3
-  // SessionTicket => [u8; @ext_len], // not used in TLS 1.3
-  _ => [u8; @ext_len],
-}
+// certificate_authorities_extension = bounded_vec!(u16 | 3..0xffff, distinguished_name)
 
-sever_hello_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    // ServerName => server_name_list,
-    // MaxFragmentLength => max_fragment_length,
-    // StatusRequest => certificate_status_request,
-    // SupportedGroups => named_group_list,
-    // ECPointFormats => ec_point_format_list,
-    // SignatureAlgorithms => signature_scheme_list,
-    // UseSRTP => srtp_protection_profiles,
-    // Heartbeat => heartbeat_mode,
-    // ApplicationLayerProtocolNegotiation => protocol_name_list,
-    // SignedCertificateTimeStamp => signed_certificate_timestamp_list,
-    // ClientCertificateType => client_cert_type_client_extension,
-    // ServerCertificateType => server_cert_type_client_extension,
-    // Padding => padding_extension,
-    // EncryptThenMac => empty,
-    // ExtendedMasterSecret => empty,
-    // SessionTicket => empty,
-    PreSharedKey => pre_shared_key_server_extension,
-    // EarlyData => empty,
-    SupportedVersions => supported_versions_server,
-    //Cookie => cookie,
-    //PskKeyExchangeModes => psk_key_exchange_modes,
-    //CertificateAuthorities => certificate_authorities_extension,
-    //OidFilters => oid_filter_extension,
-    //PostHandshakeAuth => empty,
-    //SignatureAlgorithmsCert => signature_scheme_list,
-    KeyShare => key_share_entry,
-    _ => [u8; @ext_len],
-  },
-}
+// oid_filter = {
+//   certificate_extension_oid: opaque_1_ff,
+//   certificate_extension_values: opaque_0_ffff,
+// }
 
-hello_retry_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    SupportedVersions => supported_versions_server,
-    Cookie => cookie,
-    KeyShare => named_group,
-    _ => [u8; @ext_len],
-  },
-}
+// oid_filter_extension = bounded_vec!(u16, oid_filter)
 
-encrypted_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    ServerName => empty,
-    MaxFragmentLength => max_fragment_length,
-    SupportedGroups => named_group_list,
-    // UseSRTP => use_srtp_data,
-    Heartbeat => heartbeat_mode,
-    ApplicationLayerProtocolNegotiation => protocol_name_list,
-    ClientCertificateType => client_cert_type_client_extension,
-    ServerCertificateType => server_cert_type_client_extension,
-    EarlyData => empty,
-    _ => [u8; @ext_len],
-  },
-}
+// // uncompressed_point_representation32 = {
+// //   const legacy_form: u8 = 4, 
+// //   x: [u8; 32],
+// //   y: [u8; 32],
+// // }
+// // 
+// // uncompressed_point_representation48 = {
+// //   const legacy_form: u8 = 4,
+// //   x: [u8; 48],
+// //   y: [u8; 48],
+// // }
+// // 
+// // uncompressed_point_representation66 = {
+// //   const legacy_form: u8 = 4,
+// //   x: [u8; 66],
+// //   y: [u8; 66],
+// // }
+// // 
+// // montgomery_point32 = [u8; 32]
+// // 
+// // montgomery_form56 = [u8; 56]
+// // 
+// // sever_dh_params = {
+// //   dh_p: opaque_1_ffff,
+// //   dh_g: opaque_1_ffff,
+// //   dh_ys: opaque_1_ffff,
+// // }
+// // 
+// // key_exchange_data = opaque_1_ffff
 
-certificate_request_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    SignatureAlgorithms => signature_scheme_list,
-    CertificateAuthorities => certificate_authorities_extension,
-    SignatureAlgorithmsCert => signature_scheme_list,
-    StatusRequest => certificate_status_request,
-    SignedCertificateTimeStamp => signed_certificate_timestamp_list,
-    OidFilters => oid_filter_extension,
-    _ => [u8; @ext_len],
-  },
-}
+// key_share_entry = {
+//   @group: named_group,
+//   @l: u16 | 1..0xffff,
+//   key_exchange: [u8; @l],
+//   // key_exchange: [u8; @l] >>= choose(@group) {
+//   //   Secp256r1 => uncompressed_point_representation32,
+//   //   Secp384r1 => uncompressed_point_representation48,
+//   //   Secp521r1 => uncompressed_point_representation66,
 
-certificate_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    StatusRequest => certificate_status,
-    SignedCertificateTimeStamp => signed_certificate_timestamp_list,
-    _ => [u8; @ext_len],
-  },
-}
+//   //   X25519 => montgomery_point32,
+//   //   X448 => montgomery_form56,
 
-new_session_ticket_extension = {
-  @extension_type: extension_type,
-  @ext_len: u16,
-  extension_data: [u8; @ext_len] >>= choose(@extension_type) {
-    EarlyData => early_data_indication_new_session_ticket,
-    _ => [u8; @ext_len],
-  },
-}
+//   //   Ffdhe2048 => sever_dh_params,
+//   //   Ffdhe3072 => sever_dh_params,
+//   //   Ffdhe4096 => sever_dh_params,
+//   //   Ffdhe6144 => sever_dh_params,
+//   //   Ffdhe8192 => sever_dh_params,
 
-extension = {
-  extension_type: extension_type,
-  extension_data: opaque_0_ffff,
-}
+//   //   _ => key_exchange_data,
+//   // },
+// }
 
-alert_level = enum {
-  Warning = 1,
-  Fatal = 2,
-}
+// key_share_client_hello = bounded_vec!(u16, key_share_entry)
 
-alert_description = enum {
-  CloseNotify = 0,
-  UnexpectedMessage = 10,
-  BadRecordMac = 20,
-  RecordOverflow = 22,
-  HandshakeFailure = 40,
-  BadCertificate = 42,
-  UnsupportedCertificate = 43,
-  CertificateRevoked = 44,
-  CertificateExpired = 45,
-  CertificateUnknown = 46,
-  IllegalParameter = 47,
-  UnknownCA = 48,
-  AccessDenied = 49,
-  DecodeError = 50,
-  DecryptError = 51,
-  ProtocolVersion = 70,
-  InsufficientSecurity = 71,
-  InternalError = 80,
-  InappropriateFallback = 86,
-  UserCanceled = 90,
-  MissingExtension = 109,
-  UnsupportedExtension = 110,
-  UnrecognizedName = 112,
-  BadCertificateStatusResponse = 113,
-  UnknownPSKIdentity = 115,
-  CertificateRequired = 116,
-  NoApplicationProtocol = 120,
-}
+// unknown_extension = opaque_0_ffff
 
-alert = {
-  level: alert_level,
-  description: alert_description,
-}
+// empty = [u8; 0]
 
-content_type = enum {
-  Invalid = 0,
-  ChangeCipherSpec = 20,
-  Alert = 21,
-  Handshake = 22,
-  ApplicationData = 23,
-}
+// client_hello_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     // popular extensions
+//     ServerName => server_name_list,
+//     SignatureAlgorithms => signature_scheme_list,
+//     SupportedGroups => named_group_list,
+//     StatusRequest => certificate_status_request,
+//     ApplicationLayerProtocolNegotiation => protocol_name_list,
+//     SupportedVersions => supported_versions_client,
+//     KeyShare => key_share_client_hello,
+//     PskKeyExchangeModes => psk_key_exchange_modes,
+//     PreSharedKey => pre_shared_key_client_extension,
+//     _ => client_hello_extension_rest(@ext_len, @extension_type),
+//   },
+// }
 
-tls_plaintext = {
-  content_type: content_type,
-  legacy_record_version: protocol_version,
-  fragment: opaque_0_ffff,
-}
+// client_hello_extension_rest(@ext_len: u16, @extension_type: extension_type) = choose(@extension_type) {
+//   MaxFragmentLength => max_fragment_length,
+//   Heartbeat => heartbeat_mode,
+//   SignedCertificateTimeStamp => signed_certificate_timestamp_list,
+//   ClientCertificateType => client_cert_type_client_extension,
+//   ServerCertificateType => server_cert_type_client_extension,
+//   // Padding => padding_extension(@ext_len),
+//   Padding => [u8; @ext_len],
+//   Cookie => cookie,
+//   CertificateAuthorities => certificate_authorities_extension,
+//   OidFilters => oid_filter_extension,
+//   SignatureAlgorithmsCert => signature_scheme_list,
+//   // EarlyData => empty,
+//   // PostHandshakeAuth => empty,
+//   // UseSRTP => use_srtp_data, // Only allowed in DTLS?
+//   // ECPointFormats => ec_point_format_list, // not used in TLS 1.3
+//   // EncryptThenMac => empty, // not used in TLS 1.3
+//   // ExtendedMasterSecret => empty, // not used in TLS 1.3
+//   // SessionTicket => [u8; @ext_len], // not used in TLS 1.3
+//   _ => [u8; @ext_len],
+// }
 
-tls_ciphertext = {
-  opaque_type: content_type,
-  version: protocol_version,
-  encrypted_record: opaque_0_ffff,
-}
+// sever_hello_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     // ServerName => server_name_list,
+//     // MaxFragmentLength => max_fragment_length,
+//     // StatusRequest => certificate_status_request,
+//     // SupportedGroups => named_group_list,
+//     // ECPointFormats => ec_point_format_list,
+//     // SignatureAlgorithms => signature_scheme_list,
+//     // UseSRTP => srtp_protection_profiles,
+//     // Heartbeat => heartbeat_mode,
+//     // ApplicationLayerProtocolNegotiation => protocol_name_list,
+//     // SignedCertificateTimeStamp => signed_certificate_timestamp_list,
+//     // ClientCertificateType => client_cert_type_client_extension,
+//     // ServerCertificateType => server_cert_type_client_extension,
+//     // Padding => padding_extension,
+//     // EncryptThenMac => empty,
+//     // ExtendedMasterSecret => empty,
+//     // SessionTicket => empty,
+//     PreSharedKey => pre_shared_key_server_extension,
+//     // EarlyData => empty,
+//     SupportedVersions => supported_versions_server,
+//     //Cookie => cookie,
+//     //PskKeyExchangeModes => psk_key_exchange_modes,
+//     //CertificateAuthorities => certificate_authorities_extension,
+//     //OidFilters => oid_filter_extension,
+//     //PostHandshakeAuth => empty,
+//     //SignatureAlgorithmsCert => signature_scheme_list,
+//     KeyShare => key_share_entry,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-cipher_suite = enum {
-  TLS_AES_128_GCM_SHA256 = 0x1301,
-  TLS_AES_256_GCM_SHA384 = 0x1302,
-  TLS_CHACHA20_POLY1305_SHA256 = 0x1303,
-  TLS_AES_128_CCM_SHA256 = 0x1304,
-  TLS_AES_128_CCM_8_SHA256 = 0x1305,
-  ...
-}
+// hello_retry_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     SupportedVersions => supported_versions_server,
+//     Cookie => cookie,
+//     KeyShare => named_group,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-client_hello = {
-  const legacy_version: u16 = 0x0303, // TLS 1.2
-  random: [u8; 32],
-  legacy_session_id: session_id,
-  cipher_suites: cipher_suite_list,
-  legacy_compression_methods: opaque_1_ff,
-  // const legacy_compression_methods: [u8; 2] = [0x01, 0x00],
-  extensions: client_extensions,
-}
+// encrypted_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     ServerName => empty,
+//     MaxFragmentLength => max_fragment_length,
+//     SupportedGroups => named_group_list,
+//     // UseSRTP => use_srtp_data,
+//     Heartbeat => heartbeat_mode,
+//     ApplicationLayerProtocolNegotiation => protocol_name_list,
+//     ClientCertificateType => client_cert_type_client_extension,
+//     ServerCertificateType => server_cert_type_client_extension,
+//     EarlyData => empty,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-sh_or_hrr = {
-  const legacy_version: u16 = 0x0303, // TLS 1.2
-  @random: [u8; 32],
-  payload: Tail,
-  // payload: choose (@random) {
-  //   [0xcf, 0x21, 0xad, 0x74, 0xe5, 0x9a, 0x61, 0x11,
-  //    0xbe, 0x1d, 0x8c, 0x02, 0x1e, 0x65, 0xb8, 0x91,
-  //    0xc2, 0xa2, 0x11, 0x16, 0x7a, 0xbb, 0x8c, 0x5e,
-  //    0x07, 0x9e, 0x09, 0xe2, 0xc8, 0xa8, 0x33, 0x9c] => hello_retry_request,
-  //   _ => server_hello,
-  // },
-}
+// certificate_request_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     SignatureAlgorithms => signature_scheme_list,
+//     CertificateAuthorities => certificate_authorities_extension,
+//     SignatureAlgorithmsCert => signature_scheme_list,
+//     StatusRequest => certificate_status_request,
+//     SignedCertificateTimeStamp => signed_certificate_timestamp_list,
+//     OidFilters => oid_filter_extension,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-server_hello = {
-  legacy_session_id_echo: session_id,
-  cipher_suite: cipher_suite,
-  const legacy_compression_method: u8 = 0,
-  extensions: server_extensions,
-}
+// certificate_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     StatusRequest => certificate_status,
+//     SignedCertificateTimeStamp => signed_certificate_timestamp_list,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-hello_retry_request = {
-  legacy_session_id_echo: session_id,
-  cipher_suite: cipher_suite,
-  const legacy_compression_method: u8 = 0,
-  extensions: hello_retry_extensions,
-}
+// new_session_ticket_extension = {
+//   @extension_type: extension_type,
+//   @ext_len: u16,
+//   extension_data: [u8; @ext_len] >>= choose(@extension_type) {
+//     EarlyData => early_data_indication_new_session_ticket,
+//     _ => [u8; @ext_len],
+//   },
+// }
 
-cipher_suite_list = bounded_vec!(u16 | 2..0xfffe, cipher_suite)
+// extension = {
+//   extension_type: extension_type,
+//   extension_data: opaque_0_ffff,
+// }
 
-session_id = {
-  @l: u8 | { 0..32 },
-  id: [u8; @l],
-}
+// alert_level = enum {
+//   Warning = 1,
+//   Fatal = 2,
+// }
 
-client_extensions = bounded_vec!(u16 | 8..0xffff, client_hello_extension)
+// alert_description = enum {
+//   CloseNotify = 0,
+//   UnexpectedMessage = 10,
+//   BadRecordMac = 20,
+//   RecordOverflow = 22,
+//   HandshakeFailure = 40,
+//   BadCertificate = 42,
+//   UnsupportedCertificate = 43,
+//   CertificateRevoked = 44,
+//   CertificateExpired = 45,
+//   CertificateUnknown = 46,
+//   IllegalParameter = 47,
+//   UnknownCA = 48,
+//   AccessDenied = 49,
+//   DecodeError = 50,
+//   DecryptError = 51,
+//   ProtocolVersion = 70,
+//   InsufficientSecurity = 71,
+//   InternalError = 80,
+//   InappropriateFallback = 86,
+//   UserCanceled = 90,
+//   MissingExtension = 109,
+//   UnsupportedExtension = 110,
+//   UnrecognizedName = 112,
+//   BadCertificateStatusResponse = 113,
+//   UnknownPSKIdentity = 115,
+//   CertificateRequired = 116,
+//   NoApplicationProtocol = 120,
+// }
 
-server_extensions = bounded_vec!(u16 | 6..0xffff, sever_hello_extension)
+// alert = {
+//   level: alert_level,
+//   description: alert_description,
+// }
 
-hello_retry_extensions = bounded_vec!(u16 | 6..0xffff, hello_retry_extension)
+// content_type = enum {
+//   Invalid = 0,
+//   ChangeCipherSpec = 20,
+//   Alert = 21,
+//   Handshake = 22,
+//   ApplicationData = 23,
+// }
 
-certificate_request_extensions = bounded_vec!(u16 | 2..0xffff, certificate_request_extension)
+// tls_plaintext = {
+//   content_type: content_type,
+//   legacy_record_version: protocol_version,
+//   fragment: opaque_0_ffff,
+// }
 
-encrypted_extensions = bounded_vec!(u16, encrypted_extension)
+// tls_ciphertext = {
+//   opaque_type: content_type,
+//   version: protocol_version,
+//   encrypted_record: opaque_0_ffff,
+// }
 
-new_session_ticket_extensions = bounded_vec!(u16 | 0..0xfffe, new_session_ticket_extension)
+// cipher_suite = enum {
+//   TLS_AES_128_GCM_SHA256 = 0x1301,
+//   TLS_AES_256_GCM_SHA384 = 0x1302,
+//   TLS_CHACHA20_POLY1305_SHA256 = 0x1303,
+//   TLS_AES_128_CCM_SHA256 = 0x1304,
+//   TLS_AES_128_CCM_8_SHA256 = 0x1305,
+//   ...
+// }
 
-certificate_extensions = bounded_vec!(u16, certificate_extension)
+// client_hello = {
+//   const legacy_version: u16 = 0x0303, // TLS 1.2
+//   random: [u8; 32],
+//   legacy_session_id: session_id,
+//   cipher_suites: cipher_suite_list,
+//   legacy_compression_methods: opaque_1_ff,
+//   // const legacy_compression_methods: [u8; 2] = [0x01, 0x00],
+//   extensions: client_extensions,
+// }
 
-certificate_request = {
-  certificate_request_context: opaque_0_ff,
-  extensions: certificate_request_extensions,
-}
+// sh_or_hrr = {
+//   const legacy_version: u16 = 0x0303, // TLS 1.2
+//   @random: [u8; 32],
+//   payload: Tail,
+//   // payload: choose (@random) {
+//   //   [0xcf, 0x21, 0xad, 0x74, 0xe5, 0x9a, 0x61, 0x11,
+//   //    0xbe, 0x1d, 0x8c, 0x02, 0x1e, 0x65, 0xb8, 0x91,
+//   //    0xc2, 0xa2, 0x11, 0x16, 0x7a, 0xbb, 0x8c, 0x5e,
+//   //    0x07, 0x9e, 0x09, 0xe2, 0xc8, 0xa8, 0x33, 0x9c] => hello_retry_request,
+//   //   _ => server_hello,
+//   // },
+// }
 
-// struct {
-//     select (certificate_type) {
-//         case RawPublicKey:
-//           /* From RFC 7250 ASN.1_subjectPublicKeyInfo */
-//           opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
-// 
-//         case X509:
-//           opaque cert_data<1..2^24-1>;
-//     };
-//     Extension extensions<0..2^16-1>;
-// } CertificateEntry;
-certificate_entry(@cert_type: certificate_type) = {
-  data: choose(@cert_type) {
-    X509 => opaque_1_ffffff,
-    RawPublicKey => opaque_1_ffffff,
-  },
-  extensions: certificate_extensions,
-}
+// server_hello = {
+//   legacy_session_id_echo: session_id,
+//   cipher_suite: cipher_suite,
+//   const legacy_compression_method: u8 = 0,
+//   extensions: server_extensions,
+// }
 
-certificate_entry_opaque = {
-  cert_data: opaque_1_ffffff,
-  extensions: certificate_extensions,
-}
+// hello_retry_request = {
+//   legacy_session_id_echo: session_id,
+//   cipher_suite: cipher_suite,
+//   const legacy_compression_method: u8 = 0,
+//   extensions: hello_retry_extensions,
+// }
 
-certificate_list = bounded_vec!(u24, certificate_entry_opaque)
+// cipher_suite_list = bounded_vec!(u16 | 2..0xfffe, cipher_suite)
 
-certificate = {
-  certificate_request_context: opaque_0_ff,
-  certificate_list: certificate_list,
-}
+// session_id = {
+//   @l: u8 | { 0..32 },
+//   id: [u8; @l],
+// }
 
-certificate_verify = {
-  algorithm: signature_scheme,
-  signature: opaque_0_ffff,
-}
+// client_extensions = bounded_vec!(u16 | 8..0xffff, client_hello_extension)
 
-// struct {
-//     opaque verify_data[Hash.length];
-// } Finished;
-digest_size = enum {
-  Hash12 = 12,
-  Hash20 = 20,
-  Sha256 = 32,
-  Sha384 = 48,
-  Sha512 = 64,
-  Max = 0xffffff,
-  ...
-}
+// server_extensions = bounded_vec!(u16 | 6..0xffff, sever_hello_extension)
 
-finished(@size: digest_size) = choose(@size) {
-  Hash12 => [u8; 12],
-  Hash20 => [u8; 20],
-  Sha256 => [u8; 32],
-  Sha384 => [u8; 48],
-  Sha512 => [u8; 64],
-  _ => [u8; @size],
-}
-finished_opaque(@digest_size: u24) = [u8; @digest_size]
+// hello_retry_extensions = bounded_vec!(u16 | 6..0xffff, hello_retry_extension)
 
-new_session_ticket = {
-  ticket_lifetime: u32,
-  ticket_age_add: u32,
-  ticket_nonce: opaque_0_ff,
-  ticket: opaque_1_ffff,
-  extensions: new_session_ticket_extensions,
-}
+// certificate_request_extensions = bounded_vec!(u16 | 2..0xffff, certificate_request_extension)
 
-key_update_request = enum {
-  UpdateNotRequested = 0,
-  UpdateRequested = 1,
-}
+// encrypted_extensions = bounded_vec!(u16, encrypted_extension)
 
-key_update = {
-  request_update: key_update_request,
-}
+// new_session_ticket_extensions = bounded_vec!(u16 | 0..0xfffe, new_session_ticket_extension)
 
-// enum {
-//       hello_request_RESERVED(0),
-//       client_hello(1),
-//       server_hello(2),
-//       hello_verify_request_RESERVED(3),
-//       new_session_ticket(4),
-//       end_of_early_data(5),
-//       hello_retry_request_RESERVED(6),
-//       encrypted_extensions(8),
-//       certificate(11),
-//       server_key_exchange_RESERVED(12),
-//       certificate_request(13),
-//       server_hello_done_RESERVED(14),
-//       certificate_verify(15),
-//       client_key_exchange_RESERVED(16),
-//       finished(20),
-//       certificate_url_RESERVED(21),
-//       certificate_status_RESERVED(22),
-//       supplemental_data_RESERVED(23),
-//       key_update(24),
-//       message_hash(254),
-//       (255)
-//   } HandshakeType;
-handshake_type = enum {
-  ClientHello = 1,
-  ServerHello = 2,
-  NewSessionTicket = 4,
-  EndOfEarlyData = 5,
-  EncryptedExtensions = 8,
-  Certificate = 11,
-  CertificateRequest = 13,
-  CertificateVerify = 15,
-  Finished = 20,
-  KeyUpdate = 24,
-}
+// certificate_extensions = bounded_vec!(u16, certificate_extension)
 
-handshake = {
-  @msg_type: handshake_type,
-  @length: u24,
-  msg: [u8; @length] >>= choose(@msg_type) {
-    ClientHello => client_hello,
-    ServerHello => sh_or_hrr,
-    NewSessionTicket => new_session_ticket,
-    EndOfEarlyData => empty,
-    EncryptedExtensions => encrypted_extensions,
-    Certificate => certificate,
-    CertificateRequest => certificate_request,
-    CertificateVerify => certificate_verify,
-    Finished => finished(@length),
-    KeyUpdate => key_update,
-  },
-}
+// certificate_request = {
+//   certificate_request_context: opaque_0_ff,
+//   extensions: certificate_request_extensions,
+// }
+
+// // struct {
+// //     select (certificate_type) {
+// //         case RawPublicKey:
+// //           /* From RFC 7250 ASN.1_subjectPublicKeyInfo */
+// //           opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
+// // 
+// //         case X509:
+// //           opaque cert_data<1..2^24-1>;
+// //     };
+// //     Extension extensions<0..2^16-1>;
+// // } CertificateEntry;
+// certificate_entry(@cert_type: certificate_type) = {
+//   data: choose(@cert_type) {
+//     X509 => opaque_1_ffffff,
+//     RawPublicKey => opaque_1_ffffff,
+//   },
+//   extensions: certificate_extensions,
+// }
+
+// certificate_entry_opaque = {
+//   cert_data: opaque_1_ffffff,
+//   extensions: certificate_extensions,
+// }
+
+// certificate_list = bounded_vec!(u24, certificate_entry_opaque)
+
+// certificate = {
+//   certificate_request_context: opaque_0_ff,
+//   certificate_list: certificate_list,
+// }
+
+// certificate_verify = {
+//   algorithm: signature_scheme,
+//   signature: opaque_0_ffff,
+// }
+
+// // struct {
+// //     opaque verify_data[Hash.length];
+// // } Finished;
+// digest_size = enum {
+//   Hash12 = 12,
+//   Hash20 = 20,
+//   Sha256 = 32,
+//   Sha384 = 48,
+//   Sha512 = 64,
+//   Max = 0xffffff,
+//   ...
+// }
+
+// finished(@size: digest_size) = choose(@size) {
+//   Hash12 => [u8; 12],
+//   Hash20 => [u8; 20],
+//   Sha256 => [u8; 32],
+//   Sha384 => [u8; 48],
+//   Sha512 => [u8; 64],
+//   _ => [u8; @size],
+// }
+// finished_opaque(@digest_size: u24) = [u8; @digest_size]
+
+// new_session_ticket = {
+//   ticket_lifetime: u32,
+//   ticket_age_add: u32,
+//   ticket_nonce: opaque_0_ff,
+//   ticket: opaque_1_ffff,
+//   extensions: new_session_ticket_extensions,
+// }
+
+// key_update_request = enum {
+//   UpdateNotRequested = 0,
+//   UpdateRequested = 1,
+// }
+
+// key_update = {
+//   request_update: key_update_request,
+// }
+
+// // enum {
+// //       hello_request_RESERVED(0),
+// //       client_hello(1),
+// //       server_hello(2),
+// //       hello_verify_request_RESERVED(3),
+// //       new_session_ticket(4),
+// //       end_of_early_data(5),
+// //       hello_retry_request_RESERVED(6),
+// //       encrypted_extensions(8),
+// //       certificate(11),
+// //       server_key_exchange_RESERVED(12),
+// //       certificate_request(13),
+// //       server_hello_done_RESERVED(14),
+// //       certificate_verify(15),
+// //       client_key_exchange_RESERVED(16),
+// //       finished(20),
+// //       certificate_url_RESERVED(21),
+// //       certificate_status_RESERVED(22),
+// //       supplemental_data_RESERVED(23),
+// //       key_update(24),
+// //       message_hash(254),
+// //       (255)
+// //   } HandshakeType;
+// handshake_type = enum {
+//   ClientHello = 1,
+//   ServerHello = 2,
+//   NewSessionTicket = 4,
+//   EndOfEarlyData = 5,
+//   EncryptedExtensions = 8,
+//   Certificate = 11,
+//   CertificateRequest = 13,
+//   CertificateVerify = 15,
+//   Finished = 20,
+//   KeyUpdate = 24,
+// }
+
+// handshake = {
+//   @msg_type: handshake_type,
+//   @length: u24,
+//   msg: [u8; @length] >>= choose(@msg_type) {
+//     ClientHello => client_hello,
+//     ServerHello => sh_or_hrr,
+//     NewSessionTicket => new_session_ticket,
+//     EndOfEarlyData => empty,
+//     EncryptedExtensions => encrypted_extensions,
+//     Certificate => certificate,
+//     CertificateRequest => certificate_request,
+//     CertificateVerify => certificate_verify,
+//     Finished => finished(@length),
+//     KeyUpdate => key_update,
+//   },
+// }

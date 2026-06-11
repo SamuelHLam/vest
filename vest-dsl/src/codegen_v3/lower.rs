@@ -457,8 +457,26 @@ fn lower_enum(comb: &EnumCombinator, ctx: &CodegenCtx) -> CombIR {
                     .collect(),
             }
         }
-        EnumCombinator::NonExhaustive { inferred, .. } => {
-            lower_int_combinator(inferred, ctx.endian)
+        EnumCombinator::NonExhaustive { enums, inferred, .. } => {
+            // lower_int_combinator(inferred, ctx.endian)
+            let inner = lower_int_combinator(inferred, ctx.endian);
+            let predicate = vestir::IntConstraint::Set(
+                enums
+                    .iter()
+                    .map(|variant| ConstraintElem::Single(variant.value))
+                    .collect(),
+            );
+            CombIR::Enum {
+                inner: Box::new(inner),
+                predicate,
+                variants: enums
+                    .iter()
+                    .map(|variant| EnumVariantIR {
+                        name: variant.name.clone(),
+                        value: variant.value,
+                    })
+                    .collect(),
+            }
         }
     }
 }

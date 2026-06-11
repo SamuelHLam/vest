@@ -5,7 +5,7 @@ use super::super::helper_specs::{
     self, child_path, BindingEnv, CapturedValue, DependentPairHelperSpec, DispatchEnumHelperSpec,
     HelperSpec,
 };
-use super::super::{wrapper_inner_for, CombIR, DispatchBranchIR, WrapperUse};
+use super::super::{wrapper_inner_for, CombIR, DispatchBranchIR, TagValue, WrapperUse};
 use super::module_emit::{
     build_nested_tuple_pattern, concrete_borrow_type_tokens, concrete_owned_type_tokens,
     dispatch_variant_ident, public_borrow_type_tokens, public_owned_type_tokens,
@@ -29,7 +29,7 @@ impl<'a> DefinitionEmitter<'a> {
 
     fn dispatch_helper_item(&self, spec: &DispatchEnumHelperSpec<'_>) -> TokenStream {
         let helper = self.dispatch_helper_ident(&spec.path);
-        let branch_specs = self.dispatch_branch_specs(&spec.path, spec.branches, &spec.env);
+        let branch_specs = self.dispatch_branch_specs(&spec.path, spec.branches, spec.default, &spec.env);
         let branch_params: Vec<_> = branch_specs.iter().map(|spec| spec.param.clone()).collect();
         let default_branch_types: Vec<_> = branch_specs
             .iter()
@@ -82,7 +82,8 @@ impl<'a> DefinitionEmitter<'a> {
 
         let parse_arms: Vec<_> = branch_specs
             .iter()
-            .zip(spec.branches.iter())
+            .zip(spec.branches.iter().chain(std::iter::once(&DispatchBranchIR { tag: TagValue::Wildcard, comb: *(spec.default.clone().unwrap().clone()), variant_name: String::from("__default") }))
+)
             .map(|(spec, branch)| {
                 let variant = &spec.variant;
                 let nominal_variant = &spec.nominal_variant;
@@ -261,10 +262,12 @@ impl<'a> DefinitionEmitter<'a> {
         &self,
         path: &[usize],
         branches: &[DispatchBranchIR],
+        default: &Option<Box<CombIR>>,
         env: &BindingEnv,
     ) -> Vec<DispatchBranchTypes> {
         branches
             .iter()
+            .chain(std::iter::once(&DispatchBranchIR { tag: TagValue::Wildcard, comb: *(default.clone().unwrap().clone()), variant_name: String::from("__default") }))
             .enumerate()
             .map(|(idx, branch)| DispatchBranchTypes {
                 param: format_ident!("C{}", idx),

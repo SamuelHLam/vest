@@ -45,7 +45,7 @@ pub fn build_plan(definitions: &[Definition], ctx: &CodegenCtx) -> CodegenPlan {
 }
 
 pub fn generate_from_plan(plan: &CodegenPlan) -> Result<String, Box<dyn Error>> {
-    generate_module(plan).map_err(|_e| Box::new(VestError::CodegenError) as Box<dyn Error>)
+    generate_module(plan).map_err(|_e| { eprintln!("{:?}", _e); Box::new(VestError::CodegenError) as Box<dyn Error> })
 }
 
 pub fn generate_rust_module(
