@@ -6,7 +6,7 @@ It provides a concise format DSL for non-experts, as well as a combinator
 library for experts who want to build formats directly in Verus.
 
 Given a high-level format description, Vest automatically emits efficient, idiomatic Rust that is memory-safe, arithmetically safe, panic-free, and terminating on any input.
-More importantly, Vest parsers and serializers are proven to satisfy a suite of desirable [security properties](guarantees.md), making them immune to entire classes of attacks that historically plague unverified, hand-written code.
+More importantly, Vest parsers and serializers are proven to satisfy a suite of desirable [security properties](guarantees.md), making them immune to entire classes of attacks that have historically plagued unverified, hand-written code.
 
 With Vest, we have built the first
 production-grade formally verified [ASN.1 library](asn1/index.md) (supporting both DER and BER, which we leverage to implement the first verified [CMS](https://github.com/secure-foundations/vest/blob/main/vest_asn1/rfcs/CMS-RFC5652-Curated.asn1) [codec](https://github.com/secure-foundations/vest/blob/main/vest_asn1_tests/src/generated_cms.rs)),

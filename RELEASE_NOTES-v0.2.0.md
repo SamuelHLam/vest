@@ -1,6 +1,6 @@
 # Introducing Vest 2.0
 
-Since the last year, we've been pondering the design and implementation of Vest to make it more expressive, flexible, scalable, and easier to use, all while keeping strong correctness, security, and performance guarantees.
+Over the last year, we've been pondering the design and implementation of Vest to make it more expressive, flexible, scalable, and easier to use, all while keeping strong correctness, security, and performance guarantees.
 
 The result is **Vest 2.0**, a complete redesign of the combinator library that achieves better composability and more flexible security guarantees, as well as a more powerful DSL and its compiler that admits a wider range of formats.
 

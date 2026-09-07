@@ -7,15 +7,21 @@
 
 # <img src=".github/assets/vest-logo.svg" alt="Vest" height="72px">
 
-Vest is a framework based on [Verus](https://github.com/verus-lang/verus) for building verified, secure, performant binary parsers and serializers in Rust.
-It consists of several core components:
-* `vest_lib`, a verified combinator library for building formats compositionally.
+Vest is a framework based on [Verus](https://github.com/verus-lang/verus) for building verified, secure, and performant parsers and serializers for binary data formats in Rust.
+A binary data format *specifies* constraints and inter-dependencies on structured data, as well as how that data is represented in bytes;
+a parser/serializer *implements* that specification by mechanically translating between the structured data and its flat byte representation.
+Binary formats are ubiquitous in [networking](https://en.wikipedia.org/wiki/Communication_protocol#Message_encoding), [data storage](https://en.wikipedia.org/wiki/List_of_file_formats), and [cryptography](https://en.wikipedia.org/wiki/Cryptography_standards#Internet_Requests_for_Comments_(RFCs)),
+and are often both performance-critical and security-critical.
+
+Vest consists of several core components:
+
+* `vest_lib`, a verified combinator library in Rust for building formats (parsers, serializers, and their data types) compositionally.
 * `vest` DSL, a domain-specific language for describing formats concisely; and a compiler that automatically generates verified Rust code (leveraging the combinator library `vest_lib`) from format descriptions in the DSL.
 * `vest_asn1`, a compiler for ASN.1 schemas that automatically generates verified parsers and serializers (leveraging the verified backend ASN.1 combinators in `vest_lib`), supporting both Distinguished Encoding Rules (DER) and Basic Encoding Rules (BER).
 * Vest-CBOR, a verified generic CBOR codec (built on top of `vest_lib` combinators) that supports both general and deterministic CBOR.
 
-Vest-generated parsers and serializers are provably memory-safe, arithmetically safe, panic-free, and terminating on any input. 
-More importantly, they are guaranteed to satisfy a suite of *security properties*, making them immune to entire classes of attacks that historically plague unverified, hand-written code.
+Vest-generated parsers and serializers are provably memory-safe, arithmetically safe, panic-free, and terminating on any input.
+More importantly, they are guaranteed to satisfy a suite of [*security properties*](https://secure-foundations.github.io/vest/guide/guarantees.html), making them immune to entire classes of attacks that have historically plagued unverified, hand-written code.
 
 <p align="center">
   <img src=".github/assets/vest-example.png" alt="Vest DSL describing TLS handshake messages">
