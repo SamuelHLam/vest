@@ -15,6 +15,7 @@ impl<Inner, M> SPRoundTripDps for super::Mapped<Inner, M> where
 
     proof fn theorem_serialize_dps_parse_roundtrip(&self, v: Self::T, obuf: Seq<u8>) {
         let inner_v = self.mapper.spec_map_rev(v);
+        assert(self.unambiguous());
         self.inner.theorem_serialize_dps_parse_roundtrip(inner_v, obuf);
         assert(self.mapper.wf_out(v));
         self.mapper.lemma_sound_mapper(v);
@@ -32,6 +33,7 @@ impl<Inner, M> NonMalleable for super::Mapped<Inner, M> where
     }
 
     proof fn lemma_parse_non_malleable(&self, buf1: Seq<u8>, buf2: Seq<u8>) {
+        assert(self.nonmal_inv());
         if let Some((n1, v1)) = self.spec_parse(buf1) {
             if let Some((n2, v2)) = self.spec_parse(buf2) {
                 if v1 == v2 {

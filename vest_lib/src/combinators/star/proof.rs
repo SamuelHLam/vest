@@ -317,6 +317,7 @@ impl<A> EquivSerializers for super::Star<A> where A: EquivSerializersGeneral {
     proof fn lemma_serialize_equiv_on_empty(&self, v: Self::SVal) {
         reveal(<super::Star::<_> as SpecSerializerDps>::spec_serialize_dps);
         reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        assert(self.equiv_inv() == self.0.equiv_general_inv());
         self.lemma_serialize_equiv_rec(v, Seq::empty());
     }
 }

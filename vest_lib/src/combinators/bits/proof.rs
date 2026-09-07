@@ -38,6 +38,7 @@ impl<Repr, Tuple, Nominal> NonMalleable for super::Bits<Repr, Tuple, Nominal> wh
 
     proof fn lemma_parse_non_malleable(&self, buf1: Seq<u8>, buf2: Seq<u8>) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.nonmal_inv() == fmt.nonmal_inv());
         fmt.lemma_parse_non_malleable(buf1, buf2);
     }
 }
@@ -67,6 +68,7 @@ impl<Repr, Tuple, Nominal> Productive for super::Bits<Repr, Tuple, Nominal> wher
 
     proof fn lemma_productive(&self, s: Seq<u8>) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.productive_inv() == fmt.productive_inv());
         fmt.lemma_productive(s);
     }
 }
@@ -81,6 +83,7 @@ impl<Repr, Tuple, Nominal> EquivSerializersGeneral for super::Bits<Repr, Tuple, 
 
     proof fn lemma_serialize_equiv(&self, v: Self::SVal, obuf: Seq<u8>) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.equiv_general_inv() == fmt.equiv_general_inv());
         fmt.lemma_serialize_equiv(v, obuf);
     }
 }

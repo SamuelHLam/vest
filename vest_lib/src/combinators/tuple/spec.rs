@@ -49,6 +49,7 @@ impl<A, B> SoundParser for super::Pair<A, B> where A: SoundParser, B: SoundParse
     }
 
     proof fn lemma_parse_sound_consumption(&self, ibuf: Seq<u8>) {
+        assert(self.sound_inv());
         self.0.lemma_parse_sound_consumption(ibuf);
         if let Some((n1, v1)) = self.0.spec_parse(ibuf) {
             self.1.lemma_parse_sound_consumption(ibuf.skip(n1));
@@ -56,6 +57,7 @@ impl<A, B> SoundParser for super::Pair<A, B> where A: SoundParser, B: SoundParse
     }
 
     proof fn lemma_parse_sound_value(&self, ibuf: Seq<u8>) {
+        assert(self.sound_inv());
         self.0.lemma_parse_sound_value(ibuf);
         if let Some((n1, v1)) = self.0.spec_parse(ibuf) {
             self.1.lemma_parse_sound_value(ibuf.skip(n1));

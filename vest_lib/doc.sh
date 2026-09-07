@@ -38,6 +38,8 @@ if [[ ! -f "$version_json" ]]; then
 fi
 
 toolchain="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["verus"]["toolchain"])' "$version_json")"
+# rustup may append an explanatory suffix to the toolchain recorded by Verus.
+toolchain="${toolchain%% *}"
 if ! rustup toolchain list | cut -d' ' -f1 | grep -Fxq "$toolchain"; then
     rustup toolchain install "$toolchain"
 fi

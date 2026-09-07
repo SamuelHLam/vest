@@ -115,6 +115,7 @@ impl<Inner, M> SoundParser for super::Mapped<Inner, M> where
     }
 
     proof fn lemma_parse_sound_consumption(&self, ibuf: Seq<u8>) {
+        assert(self.sound_inv());
         self.inner.lemma_parse_sound_consumption(ibuf);
         self.inner.lemma_parse_sound_value(ibuf);
         if let Some((_n, inner_v)) = self.inner.spec_parse(ibuf) {
@@ -124,6 +125,7 @@ impl<Inner, M> SoundParser for super::Mapped<Inner, M> where
     }
 
     proof fn lemma_parse_sound_value(&self, ibuf: Seq<u8>) {
+        assert(self.sound_inv());
         self.inner.lemma_parse_sound_value(ibuf);
         if let Some((_n, inner_v)) = self.inner.spec_parse(ibuf) {
             assert(self.mapper.wf_in(inner_v));

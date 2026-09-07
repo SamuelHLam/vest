@@ -24,20 +24,8 @@ pub use serializer::{
 };
 
 use vstd::prelude::*;
-#[cfg(verus_only)]
-use vstd::std_specs::cmp::PartialEqIs;
 
 verus! {
-
-pub assume_specification<T: core::cmp::PartialEq<U>, U>[ <[T] as PartialEq<[U]>>::eq ](
-    x: &[T],
-    y: &[U],
-) -> (res: bool)
-    ensures
-        res == (x@.len() == y@.len() && forall|i: int|
-            #![auto]
-            0 <= i < x@.len() ==> x@[i].is_eq(&y@[i])),
-;
 
 #[inline(always)]
 pub fn bytes_eq(a: &[u8], b: &[u8]) -> (r: bool)

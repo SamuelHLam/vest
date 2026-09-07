@@ -131,11 +131,13 @@ impl<Repr, Tuple, Nominal> NonTailFmt for super::Bits<Repr, Tuple, Nominal> wher
 
     proof fn lemma_serialize_dps_prepend(&self, v: Self::SValue, obuf: Seq<u8>) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.serialize_dps_inv() == fmt.serialize_dps_inv());
         fmt.lemma_serialize_dps_prepend(v, obuf);
     }
 
     proof fn lemma_serialize_dps_len(&self, v: Self::SValue, obuf: Seq<u8>) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.serialize_dps_inv() == fmt.serialize_dps_inv());
         fmt.lemma_serialize_dps_len(v, obuf);
     }
 }
@@ -150,6 +152,7 @@ impl<Repr, Tuple, Nominal> GoodSerializer for super::Bits<Repr, Tuple, Nominal> 
 
     proof fn lemma_serialize_len(&self, v: Self::SVal) {
         let fmt = bits(self.repr, self.unpack, self.pack, self.refinement, self.ctor, self.dtor);
+        assert(self.serialize_inv() == fmt.serialize_inv());
         fmt.lemma_serialize_len(v);
     }
 }
