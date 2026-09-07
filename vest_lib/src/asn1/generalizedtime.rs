@@ -997,9 +997,7 @@ mod derived_proofs {
 
         proof fn lemma_parse_sound_value(&self, ibuf: Seq<u8>) {
             if let Some((_, value)) = self.spec_parse(ibuf) {
-                lemma_der_generalized_time_canonical(ibuf);
-                assert(value.der_wf());
-                assert(generalized_time_len(value) <= usize::MAX);
+                assert(self.consistent(value));
             }
         }
     }
