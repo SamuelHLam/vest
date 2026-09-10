@@ -5,7 +5,10 @@ use crate::combinators::{
 };
 use crate::core::exec::input::{InputBuf, InputSlice};
 use crate::core::{exec::*, proof::*, spec::*};
+use crate::core::exec::generator::{StdGen, Generator};
 use crate::Never;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use Sum::Inl as L;
 use Sum::Inr as R;
@@ -271,6 +274,79 @@ impl<Output: OutputBuf, const MINIMAL: bool> Serializer<Output, u64> for VarInt<
         }
 
         assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+    }
+}
+
+impl<Output: OutputBuf, const MINIMAL: bool> Generator<Output, u64> for VarInt<MINIMAL> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        // broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        // let ghost old_obuf = obuf@;
+
+        // let rand: u64 = g.rng.random();
+        let rand = g.rng.random_range(0..4);
+
+        match rand {
+            0 => {
+                let val = g.rng.random_range(0..0xFD) as u8;
+                g.bytes = 1;
+                U8.serialize_into(&val, obuf);
+            },
+            1 => {
+                let tag = VARINT_TAG_U16;
+                let val = g.rng.random_range(0xFD..=0xFFFF) as u16;
+                g.bytes = 2;
+                U8.serialize_into(&tag, obuf);
+                U16Le.serialize_into(&val, obuf);
+            },
+            2 => {
+                let tag = VARINT_TAG_U32;
+                let val = g.rng.random_range(0x1_0000..=0xFFFF_FFFF as u32) as u32;
+                g.bytes = 4;
+                U8.serialize_into(&tag, obuf);
+                U32Le.serialize_into(&val, obuf);
+            },
+            _ => {
+                let tag = VARINT_TAG_U64;
+                let val = g.rng.random_range(0x1_0000_0000 as u64..=0xFFFF_FFFF_FFFF_FFFF as u64) as u64;
+                g.bytes = 8;
+                U8.serialize_into(&tag, obuf);
+                U64Le.serialize_into(&val, obuf);
+            },
+        }
+
+        // let rand: u64 = g.rng.random();
+
+        // match rand {
+        //     0..0xFD => {
+        //         // let val = g.rng.random_range(0..0xFD) as u8;
+        //         let val = rand as u8;
+        //         U8.serialize_into(&val, obuf);
+        //     },
+        //     0xFD..=0xFFFF => {
+        //         let tag = VARINT_TAG_U16;
+        //         // let val = g.rng.random_range(0xFD..=0xFFFF) as u16;
+        //         let val = rand as u16;
+        //         U8.serialize_into(&tag, obuf);
+        //         U16Le.serialize_into(&val, obuf);
+        //     },
+        //     0x1_0000..=0xFFFF_FFFF => {
+        //         let tag = VARINT_TAG_U32;
+        //         // let val = g.rng.random_range(0x1_0000..=0xFFFF_FFFF as u32) as u32;
+        //         let val = rand as u32;
+        //         U8.serialize_into(&tag, obuf);
+        //         U32Le.serialize_into(&val, obuf);
+        //     },
+        //     _ => {
+        //         let tag = VARINT_TAG_U64;
+        //         // let val = g.rng.random_range(0x1_0000_0000 as u64..=0xFFFF_FFFF_FFFF_FFFF as u64) as u64;
+        //         let val = rand as u64;
+        //         U8.serialize_into(&tag, obuf);
+        //         U64Le.serialize_into(&val, obuf);
+        //     },
+        // }
+
+        // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
     }
 }
 

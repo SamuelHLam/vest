@@ -84,6 +84,8 @@ pub trait OutputBuf: View<V = Seq<u8>> {
             self.write_byte(bytes[i]);
         }
     }
+
+    fn last_n_bytes(&mut self, n: usize) -> &[u8];
 }
 
 /// A non-allocating append sink backed by a caller-provided slice.
@@ -159,6 +161,10 @@ impl OutputBuf for OutputSlice<'_> {
         self.pos = old_pos + len;
         assert(self@ == old_view + bytes@);
     }
+
+    fn last_n_bytes(&mut self, n: usize) -> &[u8] {
+        &self.obuf[self.obuf.len() - n..]
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -187,6 +193,10 @@ impl OutputBuf for Vec<u8> {
 
     fn write_bytes(&mut self, bytes: &[u8]) {
         self.extend_from_slice(bytes);
+    }
+
+    fn last_n_bytes(&mut self, n: usize) -> &[u8] {
+        &self[self.len() - n..]
     }
 }
 

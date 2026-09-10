@@ -14,6 +14,7 @@ pub mod input;
 pub mod output;
 pub mod parser;
 pub mod serializer;
+pub mod generator;
 
 pub use error::{ParseError, ParseErrorKind};
 pub use input::{InputBuf, InputSlice};

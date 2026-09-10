@@ -4,8 +4,11 @@ use crate::core::exec::ComplianceErrorKind;
 use crate::core::exec::{
     parser::{PResult, Parser},
     serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+    generator::{StdGen, Generator},
     ParseError, ParseErrorKind,
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use crate::Never;
 use vstd::prelude::*;
 use OutputBuf;
@@ -35,6 +38,13 @@ impl<I: View<V = Seq<u8>>> Parser<I> for super::Empty {
 
 impl<Output: OutputBuf> Serializer<Output, ()> for super::Empty {
     fn serialize_into(&self, _v: &(), _obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+    }
+}
+
+impl<Output: OutputBuf> Generator<Output, ()> for super::Empty {
+    fn generate(&mut self, _g: &mut StdGen, _obuf: &mut Output) {
         broadcast use crate::core::exec::output::outbuf_lemmas;
 
     }

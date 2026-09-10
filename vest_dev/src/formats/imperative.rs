@@ -40,6 +40,15 @@ pub struct BtcTx<'i> {
     pub locktime: u8,
 }
 
+pub struct OwnedBtcTx {
+    pub txin_cnt: u8,
+    pub txin: Vec<u8>,
+    pub txout_cnt: u8,
+    pub txout: Vec<u16>,
+    pub witness: Vec<u16>,
+    pub locktime: u8,
+}
+
 #[verifier::ext_equal]
 pub struct BtcTxSpec {
     pub txin_cnt: u8,
@@ -281,6 +290,27 @@ impl<Output: OutputBuf, 'i> Serializer<Output, BtcTx<'i>> for TxSegwitFmt {
 
         let ghost old_obuf = obuf@;
         let BtcTx { txin_cnt, txin, txout_cnt, txout, witness, locktime } = v;
+        U8.serialize_into(&1u8, obuf);
+        U8.serialize_into(txin_cnt, obuf);
+        Varied(*txin_cnt).serialize_into(txin, obuf);
+        U8.serialize_into(txout_cnt, obuf);
+        RepeatN(*txout_cnt, U16Le).serialize_into(txout, obuf);
+        RepeatN(*txin_cnt, U16Le).serialize_into(witness, obuf);
+
+        U8.serialize_into(locktime, obuf);
+        assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+    }
+}
+
+impl<Output: OutputBuf> Serializer<Output, OwnedBtcTx> for TxSegwitFmt {
+    fn serialize_into(&self, v: &OwnedBtcTx, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+        reveal(<TxSegwitFmt as SpecSerializer>::spec_serialize);
+        reveal(<TxSegwitFmt as SpecByteLen>::byte_len);
+        reveal(<TxSegwitFmt as Consistency>::consistent);
+
+        let ghost old_obuf = obuf@;
+        let OwnedBtcTx { txin_cnt, txin, txout_cnt, txout, witness, locktime } = v;
         U8.serialize_into(&1u8, obuf);
         U8.serialize_into(txin_cnt, obuf);
         Varied(*txin_cnt).serialize_into(txin, obuf);

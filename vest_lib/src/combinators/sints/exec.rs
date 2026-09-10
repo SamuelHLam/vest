@@ -6,8 +6,11 @@ use crate::core::exec::output::*;
 use crate::core::exec::{
     parser::{PResult, Parser},
     serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+    generator::{StdGen, Generator},
     ParseError,
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -145,6 +148,13 @@ impl<Output: OutputBuf> Serializer<Output, i8> for super::I8 {
     }
 }
 
+impl<Output: OutputBuf> Generator<Output, i8> for super::I8 {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let byte = g.rng.random();
+        obuf.write_byte(byte);
+    }
+}
+
 impl ByteLen<i8> for super::I8 {
     fn length(&self, _v: &i8) -> (len: usize) {
         U8_BYTE_LEN
@@ -178,6 +188,14 @@ impl Parser<&[u8]> for super::I16Le {
 impl<Output: OutputBuf> Serializer<Output, i16> for super::I16Le {
     fn serialize_into(&self, v: &i16, obuf: &mut Output) {
         let bytes = i16_to_le_bytes(*v);
+        obuf.write_bytes(&bytes);
+    }
+}
+
+impl<Output: OutputBuf> Generator<Output, i16> for super::I16Le {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 2];
+        g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
 }
@@ -219,6 +237,14 @@ impl<Output: OutputBuf> Serializer<Output, i16> for super::I16Be {
     }
 }
 
+impl<Output: OutputBuf> Generator<Output, i16> for super::I16Be {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 2];
+        g.rng.fill(&mut bytes);
+        obuf.write_bytes(&bytes);
+    }
+}
+
 impl ByteLen<i16> for super::I16Be {
     fn length(&self, _v: &i16) -> (len: usize) {
         U16_BYTE_LEN
@@ -256,6 +282,14 @@ impl<Output: OutputBuf> Serializer<Output, i32> for super::I32Le {
     }
 }
 
+impl<Output: OutputBuf> Generator<Output, i32> for super::I32Le {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 4];
+        g.rng.fill(&mut bytes);
+        obuf.write_bytes(&bytes);
+    }
+}
+
 impl ByteLen<i32> for super::I32Le {
     fn length(&self, _v: &i32) -> (len: usize) {
         U32_BYTE_LEN
@@ -289,6 +323,14 @@ impl Parser<&[u8]> for super::I32Be {
 impl<Output: OutputBuf> Serializer<Output, i32> for super::I32Be {
     fn serialize_into(&self, v: &i32, obuf: &mut Output) {
         let bytes = i32_to_be_bytes(*v);
+        obuf.write_bytes(&bytes);
+    }
+}
+
+impl<Output: OutputBuf> Generator<Output, i32> for super::I32Be {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 4];
+        g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
 }
@@ -339,6 +381,14 @@ impl<Output: OutputBuf> Serializer<Output, i64> for super::I64Le {
     }
 }
 
+impl<Output: OutputBuf> Generator<Output, i64> for super::I64Le {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 8];
+        g.rng.fill(&mut bytes);
+        obuf.write_bytes(&bytes);
+    }
+}
+
 impl ByteLen<i64> for super::I64Le {
     fn length(&self, _v: &i64) -> (len: usize) {
         U64_BYTE_LEN
@@ -381,6 +431,14 @@ impl Parser<&[u8]> for super::I64Be {
 impl<Output: OutputBuf> Serializer<Output, i64> for super::I64Be {
     fn serialize_into(&self, v: &i64, obuf: &mut Output) {
         let bytes = i64_to_be_bytes(*v);
+        obuf.write_bytes(&bytes);
+    }
+}
+
+impl<Output: OutputBuf> Generator<Output, i64> for super::I64Be {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut bytes = [0u8; 8];
+        g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
 }

@@ -3,6 +3,7 @@ use super::leb128::*;
 use crate::combinators::disjoint::disjointness_lemmas;
 use crate::core::exec::output::*;
 use crate::core::exec::parser::*;
+use crate::core::exec::generator::*;
 use crate::{
     combinators::mapped::spec::*,
     combinators::*,
@@ -14,6 +15,8 @@ use input::InputBuf;
 use vstd::arithmetic::power::*;
 use vstd::calc;
 use vstd::prelude::*;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 
 verus! {
 
@@ -178,6 +181,41 @@ pub type Base128Fmt__<const MINIMAL: bool> = Mapped<
     >,
     FnSpecMapper<(Seq<u8>, u8), UInt>,
 >;
+
+# [derive (Debug, PartialEq, Eq, Clone)]
+pub struct Test {
+    pub tx_count: u32,
+    pub txs: Vec<u32>,
+}
+
+# [verifier::ext_equal]
+pub struct TestSpec {
+    pub tx_count: u32,
+    pub txs: Seq<u32>,
+}
+
+impl DeepView for Test {
+    type V = TestSpec;
+
+    open spec fn deep_view(&self) -> Self::V {
+        TestSpec {
+            tx_count: self.tx_count.deep_view(),
+            txs: self.txs.deep_view(),
+        }
+    }
+}
+
+pub type TestFmt = Bind<U32Le, spec_fn(u32) -> RepeatN<U32Le, u32>>;
+
+impl TestFmt {
+    # [doc = "specification constructor for `block`."]
+    pub open spec fn spec_inner() -> TestFmtSpec {
+                                        Bind(
+                                            U32Le,
+                                            |tx_count: u32| RepeatN(tx_count, U32Le),
+                                        );
+                                    }
+                                }
 
 pub open spec fn base128_fmt<const MINIMAL: bool>() -> Base128Fmt__<MINIMAL> {
     Mapped {
@@ -781,6 +819,116 @@ impl<Output: OutputBuf, const MINIMAL: bool> Serializer<Output, UInt> for Base12
     }
 }
 
+pub fn base128_gen(g: &mut StdGen, obuf: &mut [u8]) {
+    let len = obuf.len();
+    let mut pos = len;
+
+    while pos > 0
+    {
+        pos -= 1;
+        let byte = g.rng.random::<u8>() % 127;
+        obuf[pos] = byte;
+    }
+}
+
+impl<Output: OutputBuf, const MINIMAL: bool> Generator<Output, UInt> for Base128Fmt<MINIMAL> {
+    
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let num_bytes = g.rng.random_range(1..10);
+        let mut bytes = [0u8;BASE128_MAX_BYTES + 1];
+        let (encoded, _) = bytes.split_at_mut(num_bytes);
+        base128_gen(g, encoded);
+
+        for i in 0..num_bytes - 1
+        {
+            let b = encoded[i];
+            obuf.write_byte((b | CONTINUATION_MASK) as u8);
+        }
+        obuf.write_byte(encoded[num_bytes - 1]);
+    }
+}
+
+// impl Parser<&[u8]> for TestFmt {
+//         type PT = Test;
+
+//         fn parse(&self, ibuf: &&[u8]) -> PResult<Self::PT> {
+//             let _ = ibuf.len();
+//             let rest = *ibuf;
+//             let (n1, tx_count) = (U32Le).parse(&rest)?;
+//             let rest = rest.skip(n1);
+//             let (n2, txs) = (RepeatN(tx_count, U32Le)).parse(&rest)?;
+//             let rest = rest.skip(n2);
+//             let total_n = n1 + n2;
+//             let final_v = Test {
+//                 tx_count,
+//                 txs,
+//             };
+//             // assert(self.spec_parse(ibuf@) == Some((total_n as int, final_v.deep_view())));
+//             Ok((total_n, final_v))
+//         }
+//     }
+
+    // impl<Output: OutputBuf, 'i> Serializer<Output, Block<'i>> for BlockFmt {
+    //     fn serialize_into(&self, v: &Block<'i>, obuf: &mut Output) {
+    //         broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+    //         reveal(<BlockFmt as SpecSerializer>::spec_serialize);
+    //         reveal(<BlockFmt as SpecByteLen>::byte_len);
+    //         let ghost old_obuf = obuf@;
+
+    //         let Block { version, prev_block, merkle_root, timestamp, bits, nonce, tx_count, txs } =
+    //             v;
+    //         U32Le.serialize_into(version, obuf);
+    //         Fixed::<32>.serialize_into(*prev_block, obuf);
+    //         Fixed::<32>.serialize_into(*merkle_root, obuf);
+    //         U32Le.serialize_into(timestamp, obuf);
+    //         U32Le.serialize_into(bits, obuf);
+    //         U32Le.serialize_into(nonce, obuf);
+    //         VarInt::<true>.serialize_into(tx_count, obuf);
+    //         RepeatN(*tx_count, TxFmt).serialize_into(txs, obuf);
+
+    //         assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+    //     }
+    // }
+
+    // impl<Output: OutputBuf> Generator<Output, TestFmt> for TestFmt {
+    //     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+    //         U32Le.generate(g, obuf);
+    //         let serialized_tx_count = obuf.last_n_bytes(4);
+    //         let mut padded_tx_count = vec![0u8; 8];
+    //         padded_tx_count[..serialized_tx_count.len()].copy_from_slice(serialized_tx_count);
+    //         let tx_count: u64 = u64::from_le_bytes(padded_tx_count.try_into().expect("slice must be 8 bytes"));
+    //         RepeatN(tx_count, U32Le).generate(g, obuf);
+    //         // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+    //     }
+    // }
+
+    // impl<'i> Prepare<Block<'i>> for BlockFmt {
+    //     fn prepare(&self, v: &Block<'i>) -> Result<usize, PreSerializeError> {
+    //         reveal(<BlockFmt as SpecByteLen>::byte_len);
+    //         let Block { version, prev_block, merkle_root, timestamp, bits, nonce, tx_count, txs } =
+    //             v;
+    //         let l1 = (U32Le).prepare(version)?;
+    //         let l2 = (Fixed::<32>).prepare(prev_block)?;
+    //         let l3 = (Fixed::<32>).prepare(merkle_root)?;
+    //         let l4 = (U32Le).prepare(timestamp)?;
+    //         let l5 = (U32Le).prepare(bits)?;
+    //         let l6 = (U32Le).prepare(nonce)?;
+    //         let l7 = (VarInt::<true>).prepare(tx_count)?;
+    //         let l8 = (RepeatN(tx_count, TxFmt)).prepare(txs)?;
+    //         let total_len = l1.checked_add(l2).ok_or(
+    //             PreSerializeError::length_too_large(),
+    //         )?.checked_add(l3).ok_or(PreSerializeError::length_too_large())?.checked_add(l4).ok_or(
+    //             PreSerializeError::length_too_large(),
+    //         )?.checked_add(l5).ok_or(PreSerializeError::length_too_large())?.checked_add(l6).ok_or(
+    //             PreSerializeError::length_too_large(),
+    //         )?.checked_add(l7).ok_or(PreSerializeError::length_too_large())?.checked_add(l8).ok_or(
+    //             PreSerializeError::length_too_large(),
+    //         )?;
+    //         Ok(total_len)
+    //     }
+    // }
+
 impl<const MINIMAL: bool> ByteLen<UInt> for Base128Fmt<MINIMAL> {
     fn length(&self, v: &UInt) -> (len: usize) {
         let len = uint_to_base128_len(*v);
@@ -812,6 +960,31 @@ mod tests {
     use super::*;
     use crate::core::exec::serializer::PreSerializeErrorKind;
     use crate::core::exec::{ByteLen, ParseErrorKind, Parser, Prepare, SerializerExt};
+
+    #[test]
+    fn base128_gen_roundtrip() {
+        let mut fmt = Base128Fmt::<true>;
+        let mut rng = StdRng::seed_from_u64(106);
+        let mut g= StdGen{rng, bytes: 0};
+        let mut success = 0;
+        let mut noncanonical = 0;
+        let mut eof = 0;
+        for _ in 0..1000 {
+            // let size = g.rng.random_range(1..10);
+            let mut out = vec![0; 0];
+            fmt.generate(&mut g, &mut out);
+            let parsed = fmt.parse(&&out[..]);
+            match parsed {
+                Ok(val) => { success += 1; println!("{}", val.1)},
+                Err(ParseError { kind: ParseErrorKind::NonCanonical, .. }) => noncanonical += 1,
+                Err(ParseError { kind: ParseErrorKind::UnexpectedEof, .. }) => eof += 1,
+                Err(err) => println!("{}", err)
+            }
+        }
+        println!("{} out of 1000 correct encodings", success);
+        println!("{} out of 1000 noncanonical encodings", noncanonical);
+        println!("{} out of 1000 unexpected eof encodings", eof);
+    }
 
     #[test]
     fn base128_minimal_roundtrip_boundaries() {

@@ -9,10 +9,13 @@ use crate::core::{
         input::InputSlice,
         parser::{PResult, Parser},
         serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator},
         ParseError,
     },
     spec::{SpecParser, SpecSerializer},
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use core::marker::PhantomData;
 use vstd::prelude::*;
 use OutputBuf;
@@ -81,6 +84,26 @@ impl<Output: OutputBuf, Inner, M, MRev, T> Serializer<Output, T> for super::Mapp
         self.inner.serialize_into(&inner_v, obuf);
     }
 }
+//TODO: Generator::SVal
+// impl<Output: OutputBuf, Inner, M, MRev, T, InnerT> Generator<Output, T> for super::Mapped<
+//     Inner,
+//     BiMap<M, MRev>,
+// > where
+//     T: DeepView,
+//     InnerT: DeepView,
+//     Inner: Generator<Output, InnerT>,
+//     M: SpecMap<Input = Inner::SVal, Output = T::V>,
+//     MRev: for <'x>Map<&'x T, O = InnerT, Input = T::V, Output = Inner::SVal>,
+//  {
+//     #[verifier::prophetic]
+//     open spec fn exec_inv(&self) -> bool {
+//         self.inner.exec_inv()
+//     }
+
+//     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+//         self.inner.generate(g, obuf);
+//     }
+// }
 
 impl<Inner, M, MRev, T> Prepare<T> for super::Mapped<Inner, BiMap<M, MRev>> where
     T: DeepView,

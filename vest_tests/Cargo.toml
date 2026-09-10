@@ -12,6 +12,7 @@ bench-data = []
 [dependencies]
 vstd = { workspace = true, features = ["std"] }
 vest_lib = { workspace = true, features = ["std"] }
+rand = "0.10"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

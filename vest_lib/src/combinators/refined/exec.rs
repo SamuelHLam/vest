@@ -1,5 +1,5 @@
 //! Executable predicates and refined-format implementations.
-use crate::combinators::{Fixed, Preceded, Terminated};
+use crate::combinators::{Const, Fixed, Preceded, Terminated};
 use crate::core::exec::bytes_eq;
 use crate::core::exec::input::InputBuf;
 use crate::core::exec::output::*;
@@ -9,10 +9,13 @@ use crate::core::{
         input::InputSlice,
         parser::{PResult, Parser},
         serializer::{ByteLen, ComplianceErrorKind, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator},
         ParseError,
     },
     spec::{Consistency, SafeParser, SoundParser, SpecByteLen, SpecParser, SpecPred},
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -51,6 +54,21 @@ impl<Output: OutputBuf, A, PredFn, T> Serializer<Output, T> for super::Refined<A
 
     fn serialize_into(&self, v: &T, obuf: &mut Output) {
         self.0.serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, A, PredFn, T> Generator<Output, T> for super::Refined<A, PredFn> where
+    T: DeepView,
+    A: Generator<Output, T>,
+    PredFn: SpecPred<T::V>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        self.0.generate(g, obuf);
     }
 }
 
@@ -119,6 +137,21 @@ impl<Output: OutputBuf, Inner, T> Serializer<Output, T> for super::Const<Inner, 
 
     fn serialize_into(&self, v: &T, obuf: &mut Output) {
         self.0.serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, Inner, T> Generator<Output, T> for super::Const<Inner, T> where
+    T: DeepView<V = T>,
+    Inner: Generator<Output, T> + Serializer<Output, T>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    // Creating dependency edge from byte-based generator to serializer
+    fn generate(&mut self, _g: &mut StdGen, obuf: &mut Output) {
+        self.0.serialize_into(&self.1, obuf);
     }
 }
 
@@ -271,6 +304,34 @@ impl<Output: OutputBuf, Tg, TagVal, Of, T> Serializer<Output, T> for super::Pref
     }
 }
 
+impl<Output: OutputBuf, Tg, TagVal, Of, T> Generator<Output, T> for super::PrefixTagged<
+    Tg,
+    TagVal,
+    Of,
+> where
+    for<'a> &'a Tg: SpecByteLen<T = TagVal> + Generator<Output, TagVal>,
+    TagVal: DeepView<V = TagVal> + PartialEq + Structural + Copy,
+    T: View + DeepView,
+    for<'a> &'a Of: Generator<Output, T>,
+    for <'a> Const<&'a Tg, TagVal>: Parser<Output, PT = TagVal> + Generator<Output, TagVal>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& self.2.exec_inv()
+        &&& forall|v: Tg::T| v.deep_view() == v
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut fmt = Preceded::<_, _, _, false> {
+            a: super::Const(&self.0, self.1),
+            b: &self.2,
+            a_val: self.1,
+        };
+        fmt.generate(g, obuf);
+    }
+}
+
 impl<Tg, TagVal, Of, T> ByteLen<T> for super::PrefixTagged<Tg, TagVal, Of> where
     Tg: SpecByteLen<T = TagVal> + ByteLen<TagVal>,
     TagVal: DeepView<V = TagVal> + PartialEq + Structural + Copy,
@@ -365,6 +426,34 @@ impl<Output: OutputBuf, Of, Tg, TagVal, T> Serializer<Output, T> for super::Suff
             b_val: self.2,
         };
         fmt.serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, Of, Tg, TagVal, T> Generator<Output, T> for super::SuffixTagged<
+    Of,
+    Tg,
+    TagVal,
+> where
+    for<'a> &'a Tg: SpecByteLen<T = TagVal> + Generator<Output, TagVal>,
+    TagVal: DeepView<V = TagVal> + PartialEq + Structural + Copy,
+    T: DeepView,
+    for<'a> &'a Of: Generator<Output, T>,
+    for <'a> Const<&'a Tg, TagVal>: Generator<Output, TagVal>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& self.1.exec_inv()
+        &&& forall|v: TagVal| v.deep_view() == v
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut fmt = Terminated::<_, _, _, false> {
+            a: &self.0,
+            b: super::Const(&self.1, self.2),
+            b_val: self.2,
+        };
+        fmt.generate(g, obuf);
     }
 }
 

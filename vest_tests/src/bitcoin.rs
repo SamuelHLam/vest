@@ -13,6 +13,8 @@ use vest_lib::primitives::btcvarint::VarInt;
 use vest_lib::primitives::leb128::ULeb128;
 use vest_lib::Never;
 use vstd::prelude::*;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use Sum::Inl as L;
 use Sum::Inr as R;
 verus! {
@@ -4178,6 +4180,35 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, Block<'i>> for BlockFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<BlockFmt as SpecSerializer>::spec_serialize);
+            // reveal(<BlockFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+            
+            // let Block { version, prev_block, merkle_root, timestamp, bits, nonce, tx_count, txs } =
+            //     v;
+            U32Le.generate(g, obuf);
+            <vest_lib2::combinators::Fixed<32> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Fixed::<32>, g, obuf);
+            <vest_lib2::combinators::Fixed<32> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Fixed::<32>, g, obuf);
+            // Fixed::<32>.generate(g, obuf);
+            U32Le.generate(g, obuf);
+            U32Le.generate(g, obuf);
+            U32Le.generate(g, obuf);
+            VarInt::<true>.generate(g, obuf);
+            let serialized_tx_count = obuf.last_n_bytes(g.bytes);
+            if let Ok((n, tx_count)) = U32Le.parse(&serialized_tx_count) {
+            // let mut padded_tx_count = vec![0u8; 8];
+            // padded_tx_count[..serialized_tx_count.len()].copy_from_slice(serialized_tx_count);
+            // let tx_count: u64 = u64::from_le_bytes(padded_tx_count.try_into().expect("slice must be 8 bytes"));
+                RepeatN(tx_count, TxFmt).generate(g, obuf);
+            }
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<Block<'i>> for BlockFmt {
         fn prepare(&self, v: &Block<'i>) -> Result<usize, PreSerializeError> {
             reveal(<BlockFmt as SpecByteLen>::byte_len);
@@ -4248,6 +4279,26 @@ mod exec_impls {
             TxRemFmt { txin_count: *txin_count }.serialize_into(rem, obuf);
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, Tx<'i>> for TxFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            reveal(<TxFmt as SpecSerializer>::spec_serialize);
+            reveal(<TxFmt as SpecByteLen>::byte_len);
+            let ghost old_obuf = obuf@;
+
+            U32Le.generate(g, obuf);
+            VarInt::<true>.generate(g, obuf);
+            let serialized_txin_count = obuf.last_n_bytes(g.bytes);
+            let mut padded_txin_count = vec![0u8; 8];
+            padded_txin_count[..serialized_txin_count.len()].copy_from_slice(serialized_txin_count);
+            let txin_count: u64 = u64::from_le_bytes(padded_txin_count.try_into().expect("slice must be 8 bytes"));
+            TxRemFmt { txin_count }.generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
     }
 
@@ -4332,6 +4383,35 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, TxSegwit<'i>> for TxSegwitFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<TxSegwitFmt as SpecSerializer>::spec_serialize);
+            // reveal(<TxSegwitFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let TxSegwit { flag, txin_count, txins, txout_count, txouts, witness, lock_time } = v;
+            U8.generate(g, obuf);
+            VarInt::<true>.generate(g, obuf);
+            let serialized_txin_count = obuf.last_n_bytes(g.bytes);
+            let mut padded_txin_count = vec![0u8; 8];
+            padded_txin_count[..serialized_txin_count.len()].copy_from_slice(serialized_txin_count);
+            let txin_count: u64 = u64::from_le_bytes(padded_txin_count.try_into().expect("slice must be 8 bytes"));
+            RepeatN(txin_count, TxinFmt).generate(g, obuf);
+            VarInt::<true>.generate(g, obuf);
+            let serialized_txout_count = obuf.last_n_bytes(g.bytes);
+            let mut padded_txout_count = vec![0u8; 8];
+            padded_txout_count[..serialized_txout_count.len()].copy_from_slice(serialized_txout_count);
+            let txout_count: u64 = u64::from_le_bytes(padded_txout_count.try_into().expect("slice must be 8 bytes"));
+            RepeatN(txout_count, TxoutFmt).generate(g, obuf);
+            RepeatN(txin_count, WitnessFmt).generate(g, obuf);
+            LockTimeFmt.generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<TxSegwit<'i>> for TxSegwitFmt {
         fn prepare(&self, v: &TxSegwit<'i>) -> Result<usize, PreSerializeError> {
             reveal(<TxSegwitFmt as SpecByteLen>::byte_len);
@@ -4398,6 +4478,23 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, Witness<'i>> for WitnessFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<WitnessFmt as SpecSerializer>::spec_serialize);
+            // reveal(<WitnessFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let Witness { count, data } = v;
+            VarInt::<true>.generate(g, obuf);
+            let count: u64 = g.rng.random_range(0..=8);
+            RepeatN(count, WitnessComponentFmt).generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<Witness<'i>> for WitnessFmt {
         fn prepare(&self, v: &Witness<'i>) -> Result<usize, PreSerializeError> {
             reveal(<WitnessFmt as SpecByteLen>::byte_len);
@@ -4450,6 +4547,23 @@ mod exec_impls {
             Varied(*l).serialize_into(*data, obuf);
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, WitnessComponent<'i>> for WitnessComponentFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<WitnessComponentFmt as SpecSerializer>::spec_serialize);
+            // reveal(<WitnessComponentFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let WitnessComponent { l, data } = v;
+            VarInt::<true>.generate(g, obuf);
+            let l: u64 = g.rng.random_range(0..=8);
+            // Varied(l).generate(g, obuf);
+            <vest_lib2::combinators::Varied<u64> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Varied(l), g, obuf);
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
     }
 
@@ -4522,6 +4636,32 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, TxNonsegwit<'i>> for TxNonsegwitFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<TxNonsegwitFmt as SpecSerializer>::spec_serialize);
+            // reveal(<TxNonsegwitFmt as SpecByteLen>::byte_len);
+            // proof {
+            //     use_type_invariant(self);
+            // }
+
+            // let ghost old_obuf = obuf@;
+
+            // let TxNonsegwit { txins, txout_count, txouts, lock_time } = v;
+            RepeatN(self.txin_count, TxinFmt).generate(g, obuf);
+            VarInt::<true>.generate(g, obuf);
+            let serialized_txout_count = obuf.last_n_bytes(g.bytes);
+            let mut txout_count = vec![0u8; 8];
+            txout_count[..serialized_txout_count.len()].copy_from_slice(serialized_txout_count);
+            let txout_count: u64 = u64::from_le_bytes(txout_count.try_into().expect("slice must be 8 bytes"));
+            RepeatN(txout_count, TxoutFmt).generate(g, obuf);
+            LockTimeFmt.generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<TxNonsegwit<'i>> for TxNonsegwitFmt {
         fn prepare(&self, v: &TxNonsegwit<'i>) -> Result<usize, PreSerializeError> {
             reveal(<TxNonsegwitFmt as SpecByteLen>::byte_len);
@@ -4585,6 +4725,16 @@ mod exec_impls {
             }
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, LockTime> for LockTimeFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+            // reveal(<LockTimeFmt as SpecSerializer>::spec_serialize);
+            // reveal(<LockTimeFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+            (U32Le).generate(g, obuf);
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
     }
 
@@ -4654,6 +4804,22 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, Txout<'i>> for TxoutFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<TxoutFmt as SpecSerializer>::spec_serialize);
+            // reveal(<TxoutFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let Txout { value, script_pubkey } = v;
+            U64Le.generate(g, obuf);
+            ScriptFmt.generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<Txout<'i>> for TxoutFmt {
         fn prepare(&self, v: &Txout<'i>) -> Result<usize, PreSerializeError> {
             reveal(<TxoutFmt as SpecByteLen>::byte_len);
@@ -4706,6 +4872,23 @@ mod exec_impls {
             Varied(*l).serialize_into(*data, obuf);
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, Script<'i>> for ScriptFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<ScriptFmt as SpecSerializer>::spec_serialize);
+            // reveal(<ScriptFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let Script { l, data } = v;
+            VarInt::<true>.generate(g, obuf);
+            let l: u64 = g.rng.random_range(0..=8);
+            <vest_lib2::combinators::Varied<u64> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Varied(l), g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
     }
 
@@ -4762,6 +4945,23 @@ mod exec_impls {
             OutpointFmt.serialize_into(previous_output, obuf);
             ScriptSigFmt.serialize_into(script_sig, obuf);
             U32Le.serialize_into(sequence, obuf);
+
+            assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, Txin<'i>> for TxinFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<TxinFmt as SpecSerializer>::spec_serialize);
+            // reveal(<TxinFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let Txin { previous_output, script_sig, sequence } = v;
+            OutpointFmt.generate(g, obuf);
+            ScriptSigFmt.generate(g, obuf);
+            U32Le.generate(g, obuf);
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
@@ -4825,6 +5025,22 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, Outpoint<'i>> for OutpointFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<OutpointFmt as SpecSerializer>::spec_serialize);
+            // reveal(<OutpointFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let Outpoint { hash, index } = v;
+            <vest_lib2::combinators::Fixed<32> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Fixed::<32>, g, obuf);
+            U32Le.generate(g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<Outpoint<'i>> for OutpointFmt {
         fn prepare(&self, v: &Outpoint<'i>) -> Result<usize, PreSerializeError> {
             reveal(<OutpointFmt as SpecByteLen>::byte_len);
@@ -4877,6 +5093,23 @@ mod exec_impls {
             Varied(*l).serialize_into(*data, obuf);
 
             assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
+    impl<Output: OutputBuf, 'i> Generator<Output, ScriptSig<'i>> for ScriptSigFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // broadcast use vest_lib2::core::exec::output::outbuf_lemmas;
+
+            // reveal(<ScriptSigFmt as SpecSerializer>::spec_serialize);
+            // reveal(<ScriptSigFmt as SpecByteLen>::byte_len);
+            // let ghost old_obuf = obuf@;
+
+            // let ScriptSig { l, data } = v;
+            VarInt::<true>.generate(g, obuf);
+            let l: u64 = g.rng.random_range(0..=8);
+            <vest_lib2::combinators::Varied<u64> as vest_lib2::core::exec::generator::Generator<Output, [u8]>>::generate(&mut Varied(l), g, obuf);
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
         }
     }
 
@@ -4951,6 +5184,29 @@ mod exec_impls {
         }
     }
 
+    impl<Output: OutputBuf, 'i> Generator<Output, TxRem<'i>> for TxRemFmt {
+        fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+            // reveal(<TxRemFmt as SpecSerializer>::spec_serialize);
+            // reveal(<TxRemFmt as SpecByteLen>::byte_len);
+            // proof {
+            //     use_type_invariant(self);
+            // }
+
+            // let ghost old_obuf = obuf@;
+
+            match (self.txin_count) {
+                0 => {
+                    (TxSegwitFmt).generate(g, obuf);
+                },
+                _ => {
+                    (TxNonsegwitFmt { txin_count: self.txin_count }).generate(g, obuf);
+                }
+            }
+
+            // assert(obuf@ == old_obuf + self.spec_serialize(v.deep_view()));
+        }
+    }
+
     impl<'i> Prepare<TxRem<'i>> for TxRemFmt {
         fn prepare(&self, v: &TxRem<'i>) -> Result<usize, PreSerializeError> {
             reveal(<TxRemFmt as SpecByteLen>::byte_len);
@@ -4974,3 +5230,35 @@ mod exec_impls {
 }
 
 } // verus!
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vest_lib2::core::exec::serializer::PreSerializeErrorKind;
+    use vest_lib2::core::exec::{ByteLen, ParseErrorKind, Parser, Prepare, SerializerExt};
+
+    #[test]
+    fn bitcoin_gen_roundtrip() {
+        let mut fmt = BlockFmt;
+        let mut rng = StdRng::seed_from_u64(106);
+        let mut g = StdGen{rng, bytes: 0};
+        let mut success = 0;
+        let mut noncanonical = 0;
+        let mut eof = 0;
+        for _ in 0..10 {
+            // let size = rng.gen_range(1..10);
+            let mut out = vec![0; 0];
+            fmt.generate(&mut g, &mut out);
+            let parsed = fmt.parse(&&out[..]);
+            match parsed {
+                Ok(val) => { success += 1},
+                Err(ParseError { kind: ParseErrorKind::NonCanonical, .. }) => noncanonical += 1,
+                Err(ParseError { kind: ParseErrorKind::UnexpectedEof, .. }) => eof += 1,
+                Err(err) => println!("{}", err)
+            }
+        }
+        println!("{} out of 10 correct encodings", success);
+        println!("{} out of 10 noncanonical encodings", noncanonical);
+        println!("{} out of 10 unexpected eof encodings", eof);
+    }
+}
+

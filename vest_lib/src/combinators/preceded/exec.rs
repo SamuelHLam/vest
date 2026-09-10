@@ -7,11 +7,14 @@ use crate::{
             input::InputBuf,
             parser::{PResult, Parser},
             serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+            generator::{StdGen, Generator},
             ParseError,
         },
         spec::{SafeParser, SpecByteLen, SpecParser, SpecSerializer},
     },
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -83,6 +86,34 @@ impl<Output: OutputBuf, A, AVal, B, T, const CHECK: bool> Serializer<Output, T> 
 
         self.a.serialize_into(&self.a_val, obuf);
         self.b.serialize_into(v, obuf);
+
+    }
+}
+
+impl<Output: OutputBuf, A, AVal, B, T, const CHECK: bool> Generator<Output, T> for super::Preceded<
+    A,
+    AVal,
+    B,
+    CHECK,
+> where
+    AVal: DeepView<V = AVal>,
+    T: DeepView,
+    A: Generator<Output, AVal> + Parser<Output, PT = AVal>,
+    B: Generator<Output, T>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.a.exec_inv()
+        &&& self.b.exec_inv()
+        &&& forall|v: AVal| v.deep_view() == v
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        self.a.generate(g, obuf);
+        // a_val can be arbitrary for malleability
+        self.b.generate(g, obuf);
 
     }
 }

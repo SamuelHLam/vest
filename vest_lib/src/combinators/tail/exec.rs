@@ -5,6 +5,7 @@ use crate::core::exec::{
     input::InputBuf,
     parser::{PResult, Parser},
     serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+    generator::{StdGen, Generator},
     ParseError,
 };
 use crate::core::proof::Productive;
@@ -13,6 +14,8 @@ use crate::core::spec::{Consistency, SpecByteLen};
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use vstd::prelude::*;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use OutputBuf;
 
 verus! {
@@ -36,9 +39,31 @@ impl<Output: OutputBuf> Serializer<Output, [u8]> for super::Tail {
     }
 }
 
+impl<Output: OutputBuf> Generator<Output, [u8]> for super::Tail {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let num_bytes = g.rng.random_range(1..9);
+        let mut byte = [0u8; 1];
+        for _ in 0..num_bytes {
+            g.rng.fill(&mut byte);
+            obuf.write_bytes(&byte);
+        }  
+    }
+}
+
 impl<'i, Output: OutputBuf> Serializer<Output, &'i [u8]> for super::Tail {
     fn serialize_into(&self, v: &&'i [u8], obuf: &mut Output) {
         obuf.write_bytes(*v);
+    }
+}
+
+impl<'i, Output: OutputBuf> Generator<Output, &'i [u8]> for super::Tail {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let num_bytes = g.rng.random_range(1..9);
+        let mut byte = [0u8; 1];
+        for _ in 0..num_bytes {
+            g.rng.fill(&mut byte);
+            obuf.write_bytes(&byte);
+        }
     }
 }
 
@@ -91,6 +116,14 @@ impl<Output: OutputBuf> Serializer<Output, ()> for super::Eof {
     fn serialize_into(&self, _v: &(), _obuf: &mut Output) {
         broadcast use crate::core::exec::output::outbuf_lemmas;
 
+    }
+}
+
+impl<Output: OutputBuf> Generator<Output, ()> for super::Eof {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut byte = [0u8; 1];
+        g.rng.fill(&mut byte);
+        obuf.write_bytes(&byte);
     }
 }
 
@@ -196,6 +229,20 @@ impl<Output: OutputBuf, A, T> Serializer<Output, &[T]> for super::RepeatTillEnd<
     }
 }
 
+impl<Output: OutputBuf, A, T> Generator<Output, &[T]> for super::RepeatTillEnd<A> where
+    A: Generator<Output, T> + Copy,
+    T: DeepView + Copy,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        Star(self.0).generate(g, obuf);
+    }
+}
+
 impl<A, T> ByteLen<&[T]> for super::RepeatTillEnd<A> where A: ByteLen<T> + Copy, T: DeepView {
     open spec fn exec_inv(&self) -> bool {
         self.0.exec_inv()
@@ -276,6 +323,20 @@ impl<Output: OutputBuf, A, T> Serializer<Output, Option<T>> for super::OptionalE
 
     fn serialize_into(&self, v: &Option<T>, obuf: &mut Output) {
         Opt(&self.0).serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, A, T> Generator<Output, Option<T>> for super::OptionalEnd<A> where
+    for<'a> &'a A: Generator<Output, T>,
+    T: DeepView + Copy,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        Opt(&self.0).generate(g, obuf);
     }
 }
 

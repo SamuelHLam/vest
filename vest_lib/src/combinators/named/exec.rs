@@ -4,9 +4,12 @@ use crate::core::{
     exec::{
         parser::{PResult, Parser},
         serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator}
     },
     spec::SpecSerializer,
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -38,6 +41,20 @@ impl<Output: OutputBuf, T, Inner> Serializer<Output, T> for super::Named<Inner> 
 
     fn serialize_into(&self, v: &T, obuf: &mut Output) {
         self.1.serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, T, Inner> Generator<Output, T> for super::Named<Inner> where
+    T: DeepView,
+    Inner: Generator<Output, T>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.1.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        self.1.generate(g, obuf);
     }
 }
 

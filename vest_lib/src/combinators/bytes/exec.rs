@@ -5,9 +5,12 @@ use crate::core::exec::output::*;
 use crate::core::exec::{
     parser::{PResult, Parser},
     serializer::{ByteLen, ComplianceErrorKind, PreSerializeError, Prepare, Serializer},
+    generator::{StdGen, Generator},
     ParseError,
 };
 use crate::core::spec::{Consistency, SpecByteLen, SpecParser};
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -31,15 +34,39 @@ impl<Output: OutputBuf, const N: usize> Serializer<Output, [u8]> for super::Fixe
     }
 }
 
+impl<Output: OutputBuf, const N: usize> Generator<Output, [u8]> for super::Fixed<N> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
+        let mut byte = [0u8; N];
+        g.rng.fill(&mut byte);
+        obuf.write_bytes(&byte);
+    }
+}
+
 impl<'i, Output: OutputBuf, const N: usize> Serializer<Output, &'i [u8]> for super::Fixed<N> {
     fn serialize_into(&self, v: &&'i [u8], obuf: &mut Output) {
         obuf.write_bytes(*v);
     }
 }
 
+impl<'i, Output: OutputBuf, const N: usize> Generator<Output, &'i [u8]> for super::Fixed<N> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut byte = [0u8; N];
+        g.rng.fill(&mut byte);
+        obuf.write_bytes(&byte);
+    }
+}
+
 impl<Output: OutputBuf, const N: usize> Serializer<Output, [u8; N]> for super::Fixed<N> {
     fn serialize_into(&self, v: &[u8; N], obuf: &mut Output) {
         obuf.write_bytes(v);
+    }
+}
+
+impl<Output: OutputBuf, const N: usize> Generator<Output, [u8; N]> for super::Fixed<N> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut byte = [0u8; N];
+        g.rng.fill(&mut byte);
+        obuf.write_bytes(&byte);
     }
 }
 
@@ -99,9 +126,29 @@ impl<Output: OutputBuf, Len: AsLen> Serializer<Output, [u8]> for super::Varied<L
     }
 }
 
+impl<Output: OutputBuf, Len: AsLen> Generator<Output, [u8]> for super::Varied<Len> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut byte = [0u8; 1];
+        for _ in 0..self.0.get() {
+            g.rng.fill(&mut byte);
+            obuf.write_bytes(&byte);
+        }
+    }
+}
+
 impl<'i, Output: OutputBuf, Len: AsLen> Serializer<Output, &'i [u8]> for super::Varied<Len> {
     fn serialize_into(&self, v: &&'i [u8], obuf: &mut Output) {
         obuf.write_bytes(*v);
+    }
+}
+
+impl<'i, Output: OutputBuf, Len: AsLen> Generator<Output, &'i [u8]> for super::Varied<Len> {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        let mut byte = [0u8; 1];
+        for _ in 0..self.0.get() {
+            g.rng.fill(&mut byte);
+            obuf.write_bytes(&byte);
+        }
     }
 }
 
@@ -195,6 +242,16 @@ impl<Output: OutputBuf, Len, Inner, T> Serializer<Output, T> for super::ExactLen
     }
 }
 
+impl<Output: OutputBuf, Len, Inner, T> Generator<Output, T> for super::ExactLen<Inner, Len> where
+    Len: AsLen,
+    T: DeepView + ?Sized,
+    Inner: Generator<Output, T> + SpecByteLen<T = T::V>,
+ {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        self.1.generate(g, obuf);
+    }
+}
+
 impl<Output: OutputBuf, Then, T> Serializer<Output, T> for super::AndThen<Tail, Then> where
     T: DeepView + ?Sized,
     Then: Serializer<Output, T>,
@@ -206,6 +263,15 @@ impl<Output: OutputBuf, Then, T> Serializer<Output, T> for super::AndThen<Tail, 
 
     fn serialize_into(&self, v: &T, obuf: &mut Output) {
         self.1.serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, Then, T> Generator<Output, T> for super::AndThen<Tail, Then> where
+    T: DeepView + ?Sized,
+    Then: Generator<Output, T>,
+ {
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        self.1.generate(g, obuf);
     }
 }
 

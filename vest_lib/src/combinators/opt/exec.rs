@@ -5,9 +5,12 @@ use crate::core::{
         input::InputBuf,
         parser::{PResult, Parser},
         serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator}
     },
     spec::{SafeParser, SpecParser},
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -47,6 +50,27 @@ impl<Output: OutputBuf, A, T> Serializer<Output, Option<T>> for super::Opt<A> wh
         match v {
             Some(vv) => self.0.serialize_into(vv, obuf),
             None => {},
+        }
+    }
+}
+
+impl<Output: OutputBuf, A, T> Generator<Output, Option<T>> for super::Opt<A> where
+    T: DeepView,
+    A: Generator<Output, T>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        if g.rng.random_bool(0.5) {
+            self.0.generate(g, obuf);
+        }
+        else {
+            {}
         }
     }
 }
@@ -108,6 +132,21 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (Option<TA>, TB)> for s
 
     fn serialize_into(&self, v: &(Option<TA>, TB), obuf: &mut Output) {
         crate::combinators::Pair(super::Opt(&self.0), &self.1).serialize_into(v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (Option<TA>, TB)> for super::Optional<
+    A,
+    B,
+> where TA: DeepView, TB: DeepView, for<'a> super::Opt<&'a A> : Generator<Output, TA>, for<'a> &'a B : Generator<Output, TB> {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& self.1.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        crate::combinators::Pair(super::Opt(&self.0), &self.1).generate(g, obuf);
     }
 }
 

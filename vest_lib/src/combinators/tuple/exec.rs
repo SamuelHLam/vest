@@ -7,9 +7,12 @@ use crate::core::{
         input::InputBuf,
         parser::{PResult, Parser},
         serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator}
     },
     spec::{SafeParser, SpecByteLen, SpecParser, SpecSerializer},
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -65,6 +68,26 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (TA, TB)> for super::Pa
 
         self.0.serialize_into(&v.0, obuf);
         self.1.serialize_into(&v.1, obuf);
+    }
+}
+
+impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (TA, TB)> for super::Pair<A, B> where
+    TA: DeepView,
+    TB: DeepView,
+    A: Generator<Output, TA>,
+    B: Generator<Output, TB>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& self.1.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        self.0.generate(g, obuf);
+        self.1.generate(g, obuf);
     }
 }
 
@@ -162,6 +185,28 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (TA, TB)> for super::Bi
         next.serialize_into(&v.1, obuf);
     }
 }
+
+// impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (TA, TB)> for super::Bind<A, B> where
+//     TA: DeepView,
+//     TB: DeepView,
+//     A: Generator<Output, TA>,
+//     B::O: Generator<Output, TB>,
+//     B: MapRef<TA, Input = TA::V>,
+//  {
+//     #[verifier::prophetic]
+//     open spec fn exec_inv(&self) -> bool {
+//         &&& self.0.exec_inv()
+//         &&& forall|pb: B::O| #[trigger] pb.exec_inv()
+//     }
+
+//     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+//         broadcast use crate::core::exec::output::outbuf_lemmas;
+
+//         let next = self.1.map(&v.0);
+//         self.0.generate(g, obuf);
+//         next.generate(g, obuf);
+//     }
+// }
 
 impl<A, B, STA, STB> ByteLen<(STA, STB)> for super::Bind<A, B> where
     STA: DeepView,

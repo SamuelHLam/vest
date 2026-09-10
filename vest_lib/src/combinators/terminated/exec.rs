@@ -7,11 +7,14 @@ use crate::{
             input::InputBuf,
             parser::{PResult, Parser},
             serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
+            generator::{StdGen, Generator},
             ParseError,
         },
         spec::{SafeParser, SpecByteLen, SpecParser, SpecSerializer},
     },
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 use OutputBuf;
 
@@ -57,6 +60,30 @@ impl<I, A, B, BVal> Parser<I> for super::Terminated<A, B, BVal, true> where
         } else {
             Err(ParseError::non_canonical())
         }
+    }
+}
+
+impl<Output: OutputBuf, A, B, BVal, T, const CHECK: bool> Generator<
+    Output,
+    T,
+> for super::Terminated<A, B, BVal, CHECK> where
+    T: DeepView,
+    BVal: DeepView<V = BVal>,
+    A: Generator<Output, T>,
+    B: Generator<Output, BVal>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.a.exec_inv()
+        &&& self.b.exec_inv()
+        &&& forall|v: BVal| v.deep_view() == v
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        self.a.generate(g, obuf);
+        self.b.generate(g, obuf);
     }
 }
 

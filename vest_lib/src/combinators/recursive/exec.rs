@@ -5,11 +5,14 @@ use crate::core::exec::parser::*;
 use crate::core::exec::serializer::{
     ByteLen, ComplianceErrorKind, PreSerializeError, Prepare, Serializer,
 };
+use crate::core::exec::generator::{StdGen, Generator};
 use crate::core::exec::{input::InputBuf, output::OutputBuf, ParseError};
 use crate::core::proof::Productive;
 use crate::core::spec::{
     Consistency, GoodSerializer, SafeParser, SpecByteLen, SpecParser, SpecSerializer,
 };
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use vstd::prelude::*;
 
 verus! {
@@ -302,6 +305,19 @@ impl<Output: OutputBuf, T, const LIMIT: usize, Body, Param> Serializer<
         self.serialize_gas(LIMIT, &self.1, v, obuf)
     }
 }
+//TODO: recursive
+// impl<Output: OutputBuf, T, const LIMIT: usize, Body, Param> Generator<
+//     Output,
+//     T,
+// > for super::FixWith<LIMIT, Body, Param> where
+//     T: DeepView<V = Body::T>,
+//     Param: DeepView<V = Body::Param>,
+//     Body: GeneratorRecBody<Output, T, EP = Param>,
+//  {
+//     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+//         self.generate_gas(LIMIT, &self.1, v, obuf)
+//     }
+// }
 
 impl<T, const LIMIT: usize, Body, Param> Prepare<T> for super::FixWith<LIMIT, Body, Param> where
     T: DeepView<V = Body::T>,

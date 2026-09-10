@@ -18,6 +18,7 @@ alloc = ["vstd/alloc"]
 
 [dependencies]
 vstd.workspace = true
+rand = "0.10"
 
 [package.metadata.verus]
 verify = true

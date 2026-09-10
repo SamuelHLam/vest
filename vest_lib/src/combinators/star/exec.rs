@@ -7,6 +7,7 @@ use crate::core::{
         input::InputBuf,
         parser::{PResult, Parser},
         serializer::{ByteLen, ComplianceErrorKind, PreSerializeError, Prepare, Serializer},
+        generator::{StdGen, Generator},
         ParseError,
     },
     proof::Productive,
@@ -15,6 +16,8 @@ use crate::core::{
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use vstd::prelude::*;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::StdRng;
 use OutputBuf;
 
 verus! {
@@ -358,6 +361,24 @@ impl<Output: OutputBuf, Inner, T> Serializer<Output, [T]> for super::Star<Inner>
     }
 }
 
+impl<Output: OutputBuf, Inner, T> Generator<Output, [T]> for super::Star<Inner> where
+    T: DeepView,
+    Inner: Generator<Output, T>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let len = g.rng.random::<u8>();
+        for i in 0..len {
+            self.0.generate(g, obuf);
+        }
+    }
+}
+
 impl<Inner, T> ByteLen<[T]> for super::Star<Inner> where Inner: ByteLen<T>, T: DeepView {
     open spec fn exec_inv(&self) -> bool {
         self.0.exec_inv()
@@ -457,6 +478,26 @@ impl<Output: OutputBuf, Inner, N, T> Serializer<Output, [T]> for super::RepeatN<
     }
 }
 
+impl<Output: OutputBuf, Inner, N, T> Generator<Output, [T]> for super::RepeatN<Inner, N> where
+    T: DeepView,
+    Inner: Generator<Output, T>,
+    N: AsLen,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.1.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let len = g.rng.random::<u8>();
+        for i in 0..len {
+            self.1.generate(g, obuf);
+        }
+    }
+}
+
 impl<Inner, N, T> ByteLen<[T]> for super::RepeatN<Inner, N> where
     Inner: ByteLen<T>,
     T: DeepView,
@@ -502,6 +543,25 @@ impl<Output: OutputBuf, Inner, T, const N: usize> Serializer<Output, [T; N]> for
         broadcast use crate::core::exec::output::outbuf_lemmas;
 
         serialize_slice(&self.0, v, obuf);
+    }
+}
+
+impl<Output: OutputBuf, Inner, T, const N: usize> Generator<Output, [T; N]> for super::Array<
+    N,
+    Inner,
+> where T: DeepView, Inner: Generator<Output, T> {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        self.0.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let len = g.rng.random::<u8>();
+        for i in 0..len {
+            self.0.generate(g, obuf);
+        }
     }
 }
 
