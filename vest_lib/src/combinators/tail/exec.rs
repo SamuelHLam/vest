@@ -1,8 +1,8 @@
 //! Executable implementations for end-of-input and remaining-input formats.
 use crate::combinators::{Eof, Opt, Optional, Pair, Repeat, Star};
-use crate::core::exec::output::*;
 use crate::core::exec::{
     input::InputBuf,
+    output::*,
     parser::{PResult, Parser},
     serializer::{ByteLen, PreSerializeError, Prepare, Serializer},
     generator::{StdGen, Generator},
@@ -39,7 +39,7 @@ impl<Output: OutputBuf> Serializer<Output, [u8]> for super::Tail {
     }
 }
 
-impl<Output: OutputBuf> Generator<Output, [u8]> for super::Tail {
+impl<Output: OutputBuf> Generator<Output, Vec<u8>> for super::Tail {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         let num_bytes = g.rng.random_range(1..9);
         let mut byte = [0u8; 1];
@@ -48,22 +48,18 @@ impl<Output: OutputBuf> Generator<Output, [u8]> for super::Tail {
             obuf.write_bytes(&byte);
         }  
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<u8> {
+        let num_bytes = g.rng.random_range(1..9);
+        let mut byte = vec![0u8; num_bytes];
+        g.rng.fill(&mut byte);
+        byte
+    }
 }
 
 impl<'i, Output: OutputBuf> Serializer<Output, &'i [u8]> for super::Tail {
     fn serialize_into(&self, v: &&'i [u8], obuf: &mut Output) {
         obuf.write_bytes(*v);
-    }
-}
-
-impl<'i, Output: OutputBuf> Generator<Output, &'i [u8]> for super::Tail {
-    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
-        let num_bytes = g.rng.random_range(1..9);
-        let mut byte = [0u8; 1];
-        for _ in 0..num_bytes {
-            g.rng.fill(&mut byte);
-            obuf.write_bytes(&byte);
-        }
     }
 }
 
@@ -121,9 +117,11 @@ impl<Output: OutputBuf> Serializer<Output, ()> for super::Eof {
 
 impl<Output: OutputBuf> Generator<Output, ()> for super::Eof {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
-        let mut byte = [0u8; 1];
-        g.rng.fill(&mut byte);
-        obuf.write_bytes(&byte);
+        
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> () {
+
     }
 }
 
@@ -229,7 +227,7 @@ impl<Output: OutputBuf, A, T> Serializer<Output, &[T]> for super::RepeatTillEnd<
     }
 }
 
-impl<Output: OutputBuf, A, T> Generator<Output, &[T]> for super::RepeatTillEnd<A> where
+impl<Output: OutputBuf, A, T> Generator<Output, Vec<T>> for super::RepeatTillEnd<A> where
     A: Generator<Output, T> + Copy,
     T: DeepView + Copy,
  {
@@ -240,6 +238,10 @@ impl<Output: OutputBuf, A, T> Generator<Output, &[T]> for super::RepeatTillEnd<A
 
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         Star(self.0).generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<T> {
+        Star(self.0).generate_val(g)
     }
 }
 
@@ -337,6 +339,10 @@ impl<Output: OutputBuf, A, T> Generator<Output, Option<T>> for super::OptionalEn
 
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         Opt(&self.0).generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Option<T> {
+        Opt(&self.0).generate_val(g)
     }
 }
 

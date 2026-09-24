@@ -846,6 +846,10 @@ impl<Output: OutputBuf, const MINIMAL: bool> Generator<Output, UInt> for Base128
         }
         obuf.write_byte(encoded[num_bytes - 1]);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> UInt {
+        g.rng.random::<u64>()
+    }
 }
 
 // impl Parser<&[u8]> for TestFmt {

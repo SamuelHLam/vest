@@ -361,7 +361,7 @@ impl<Output: OutputBuf, Inner, T> Serializer<Output, [T]> for super::Star<Inner>
     }
 }
 
-impl<Output: OutputBuf, Inner, T> Generator<Output, [T]> for super::Star<Inner> where
+impl<Output: OutputBuf, Inner, T> Generator<Output, Vec<T>> for super::Star<Inner> where
     T: DeepView,
     Inner: Generator<Output, T>,
  {
@@ -373,9 +373,19 @@ impl<Output: OutputBuf, Inner, T> Generator<Output, [T]> for super::Star<Inner> 
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
         let len = g.rng.random::<u8>();
-        for i in 0..len {
+        for _i in 0..len {
             self.0.generate(g, obuf);
         }
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<T> {
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let mut values = Vec::new();
+        let len = g.rng.random::<u8>();
+        for _i in 0..len {
+            values.push(self.0.generate_val(g));
+        }
+        values
     }
 }
 
@@ -419,6 +429,36 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (&[TA], TB)> for super:
         super::Star(self.0).serialize_into(v.0, obuf);
         assert(obuf.fits(self.1.byte_len(v.deep_view().1)));
         self.1.serialize_into(&v.1, obuf);
+    }
+}
+
+impl<'i, Output: OutputBuf, A, B, TA, TB> Generator<Output, (Vec<TA>, TB)> for super::Repeat<A, B> where
+    TA: DeepView,
+    TB: DeepView,
+    A: Generator<Output, TA> + Copy,
+    B: Generator<Output, TB>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& self.1.exec_inv()
+    }
+
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        reveal(<super::Star<_> as SpecSerializer>::spec_serialize);
+
+        super::Star(self.0).generate(g, obuf);
+        assert(obuf.fits(self.1.byte_len(v.deep_view().1)));
+        self.1.generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> (Vec<TA>, TB) {
+        // crate::combinators::Pair(super::Star(self.0), self.1).generate_val(g)
+        let va = super::Star(self.0).generate_val(g);
+        let vb = self.1.generate_val(g);
+        (va, vb)
     }
 }
 
@@ -478,7 +518,7 @@ impl<Output: OutputBuf, Inner, N, T> Serializer<Output, [T]> for super::RepeatN<
     }
 }
 
-impl<Output: OutputBuf, Inner, N, T> Generator<Output, [T]> for super::RepeatN<Inner, N> where
+impl<Output: OutputBuf, Inner, N, T> Generator<Output, Vec<T>> for super::RepeatN<Inner, N> where
     T: DeepView,
     Inner: Generator<Output, T>,
     N: AsLen,
@@ -492,9 +532,19 @@ impl<Output: OutputBuf, Inner, N, T> Generator<Output, [T]> for super::RepeatN<I
         broadcast use crate::core::exec::output::outbuf_lemmas;
         // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
         let len = g.rng.random::<u8>();
-        for i in 0..len {
+        for _i in 0..len {
             self.1.generate(g, obuf);
         }
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<T> {
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let mut values = Vec::new();
+        let len = g.rng.random::<u8>();
+        for _i in 0..len {
+            values.push(self.1.generate_val(g));
+        }
+        values
     }
 }
 
@@ -549,7 +599,7 @@ impl<Output: OutputBuf, Inner, T, const N: usize> Serializer<Output, [T; N]> for
 impl<Output: OutputBuf, Inner, T, const N: usize> Generator<Output, [T; N]> for super::Array<
     N,
     Inner,
-> where T: DeepView, Inner: Generator<Output, T> {
+> where T: DeepView + std::fmt::Debug, Inner: Generator<Output, T> {
     #[verifier::prophetic]
     open spec fn exec_inv(&self) -> bool {
         self.0.exec_inv()
@@ -558,10 +608,16 @@ impl<Output: OutputBuf, Inner, T, const N: usize> Generator<Output, [T; N]> for 
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         broadcast use crate::core::exec::output::outbuf_lemmas;
         // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
-        let len = g.rng.random::<u8>();
-        for i in 0..len {
+        // let len = g.rng.random::<u8>();
+        for _i in 0..N {
             self.0.generate(g, obuf);
         }
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> [T; N] {
+        // reveal(<super::Star::<_> as SpecSerializer>::spec_serialize);
+        let values: [T; N] = std::array::from_fn(|_i| self.0.generate_val(g));
+        values
     }
 }
 

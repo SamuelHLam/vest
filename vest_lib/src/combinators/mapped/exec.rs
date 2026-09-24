@@ -84,7 +84,7 @@ impl<Output: OutputBuf, Inner, M, MRev, T> Serializer<Output, T> for super::Mapp
         self.inner.serialize_into(&inner_v, obuf);
     }
 }
-//TODO: Generator::SVal
+//TODO: Generator::GVal
 // impl<Output: OutputBuf, Inner, M, MRev, T, InnerT> Generator<Output, T> for super::Mapped<
 //     Inner,
 //     BiMap<M, MRev>,
@@ -102,6 +102,10 @@ impl<Output: OutputBuf, Inner, M, MRev, T> Serializer<Output, T> for super::Mapp
 
 //     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
 //         self.inner.generate(g, obuf);
+//     }
+
+//     fn generate_val(&mut self, g: &mut StdGen) -> T {
+//         self.1.generate_val(g)
 //     }
 // }
 

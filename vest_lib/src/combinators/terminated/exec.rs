@@ -63,6 +63,30 @@ impl<I, A, B, BVal> Parser<I> for super::Terminated<A, B, BVal, true> where
     }
 }
 
+impl<Output: OutputBuf, A, B, BVal, T, const CHECK: bool> Serializer<
+    Output,
+    T,
+> for super::Terminated<A, B, BVal, CHECK> where
+    T: DeepView,
+    BVal: DeepView<V = BVal>,
+    A: Serializer<Output, T>,
+    B: Serializer<Output, BVal>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.a.exec_inv()
+        &&& self.b.exec_inv()
+        &&& forall|v: BVal| v.deep_view() == v
+    }
+
+    fn serialize_into(&self, v: &T, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        self.a.serialize_into(v, obuf);
+        self.b.serialize_into(&self.b_val, obuf);
+    }
+}
+
 impl<Output: OutputBuf, A, B, BVal, T, const CHECK: bool> Generator<
     Output,
     T,
@@ -85,29 +109,9 @@ impl<Output: OutputBuf, A, B, BVal, T, const CHECK: bool> Generator<
         self.a.generate(g, obuf);
         self.b.generate(g, obuf);
     }
-}
 
-impl<Output: OutputBuf, A, B, BVal, T, const CHECK: bool> Serializer<
-    Output,
-    T,
-> for super::Terminated<A, B, BVal, CHECK> where
-    T: DeepView,
-    BVal: DeepView<V = BVal>,
-    A: Serializer<Output, T>,
-    B: Serializer<Output, BVal>,
- {
-    #[verifier::prophetic]
-    open spec fn exec_inv(&self) -> bool {
-        &&& self.a.exec_inv()
-        &&& self.b.exec_inv()
-        &&& forall|v: BVal| v.deep_view() == v
-    }
-
-    fn serialize_into(&self, v: &T, obuf: &mut Output) {
-        broadcast use crate::core::exec::output::outbuf_lemmas;
-
-        self.a.serialize_into(v, obuf);
-        self.b.serialize_into(&self.b_val, obuf);
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        self.a.generate_val(g)
     }
 }
 

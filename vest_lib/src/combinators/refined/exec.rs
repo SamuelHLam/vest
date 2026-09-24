@@ -70,6 +70,10 @@ impl<Output: OutputBuf, A, PredFn, T> Generator<Output, T> for super::Refined<A,
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         self.0.generate(g, obuf);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T{
+        self.0.generate_val(g)
+    }
 }
 
 impl<A, PredFn, T> ByteLen<T> for super::Refined<A, PredFn> where
@@ -141,8 +145,8 @@ impl<Output: OutputBuf, Inner, T> Serializer<Output, T> for super::Const<Inner, 
 }
 
 impl<Output: OutputBuf, Inner, T> Generator<Output, T> for super::Const<Inner, T> where
-    T: DeepView<V = T>,
-    Inner: Generator<Output, T> + Serializer<Output, T>,
+    T: DeepView<V = T> + Clone,
+    Inner: Serializer<Output, T>,
  {
     #[verifier::prophetic]
     open spec fn exec_inv(&self) -> bool {
@@ -152,6 +156,10 @@ impl<Output: OutputBuf, Inner, T> Generator<Output, T> for super::Const<Inner, T
     // Creating dependency edge from byte-based generator to serializer
     fn generate(&mut self, _g: &mut StdGen, obuf: &mut Output) {
         self.0.serialize_into(&self.1, obuf);
+    }
+
+    fn generate_val(&mut self, _g: &mut StdGen) -> T {
+        self.1.clone()
     }
 }
 
@@ -330,6 +338,15 @@ impl<Output: OutputBuf, Tg, TagVal, Of, T> Generator<Output, T> for super::Prefi
         };
         fmt.generate(g, obuf);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        let mut fmt = Preceded::<_, _, _, false> {
+            a: super::Const(&self.0, self.1),
+            b: &self.2,
+            a_val: self.1,
+        };
+        fmt.generate_val(g)
+    }
 }
 
 impl<Tg, TagVal, Of, T> ByteLen<T> for super::PrefixTagged<Tg, TagVal, Of> where
@@ -454,6 +471,15 @@ impl<Output: OutputBuf, Of, Tg, TagVal, T> Generator<Output, T> for super::Suffi
             b_val: self.2,
         };
         fmt.generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        let mut fmt = Terminated::<_, _, _, false> {
+            a: &self.0,
+            b: super::Const(&self.1, self.2),
+            b_val: self.2,
+        };
+        fmt.generate_val(g)
     }
 }
 

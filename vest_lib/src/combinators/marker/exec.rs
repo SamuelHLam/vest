@@ -48,6 +48,10 @@ impl<Output: OutputBuf> Generator<Output, ()> for super::Empty {
         broadcast use crate::core::exec::output::outbuf_lemmas;
 
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> () {
+        
+    }
 }
 
 impl ByteLen<()> for super::Empty {

@@ -34,25 +34,23 @@ impl<Output: OutputBuf, const N: usize> Serializer<Output, [u8]> for super::Fixe
     }
 }
 
-impl<Output: OutputBuf, const N: usize> Generator<Output, [u8]> for super::Fixed<N> {
+impl<Output: OutputBuf, const N: usize> Generator<Output, Vec<u8>> for super::Fixed<N> {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output){
         let mut byte = [0u8; N];
         g.rng.fill(&mut byte);
         obuf.write_bytes(&byte);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<u8> {
+        let mut byte = vec![0u8; N];
+        g.rng.fill(&mut byte);
+        byte
     }
 }
 
 impl<'i, Output: OutputBuf, const N: usize> Serializer<Output, &'i [u8]> for super::Fixed<N> {
     fn serialize_into(&self, v: &&'i [u8], obuf: &mut Output) {
         obuf.write_bytes(*v);
-    }
-}
-
-impl<'i, Output: OutputBuf, const N: usize> Generator<Output, &'i [u8]> for super::Fixed<N> {
-    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
-        let mut byte = [0u8; N];
-        g.rng.fill(&mut byte);
-        obuf.write_bytes(&byte);
     }
 }
 
@@ -67,6 +65,12 @@ impl<Output: OutputBuf, const N: usize> Generator<Output, [u8; N]> for super::Fi
         let mut byte = [0u8; N];
         g.rng.fill(&mut byte);
         obuf.write_bytes(&byte);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> [u8; N] {
+        let mut byte = [0u8; N];
+        g.rng.fill(&mut byte);
+        byte
     }
 }
 
@@ -126,13 +130,18 @@ impl<Output: OutputBuf, Len: AsLen> Serializer<Output, [u8]> for super::Varied<L
     }
 }
 
-impl<Output: OutputBuf, Len: AsLen> Generator<Output, [u8]> for super::Varied<Len> {
+impl<Output: OutputBuf, Len: AsLen> Generator<Output, Vec<u8>> for super::Varied<Len> {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         let mut byte = [0u8; 1];
         for _ in 0..self.0.get() {
             g.rng.fill(&mut byte);
             obuf.write_bytes(&byte);
         }
+    }
+    fn generate_val(&mut self, g: &mut StdGen) -> Vec<u8> {
+        let mut byte = vec![0u8; self.0.get()];
+        g.rng.fill(&mut byte);
+        byte
     }
 }
 
@@ -142,15 +151,15 @@ impl<'i, Output: OutputBuf, Len: AsLen> Serializer<Output, &'i [u8]> for super::
     }
 }
 
-impl<'i, Output: OutputBuf, Len: AsLen> Generator<Output, &'i [u8]> for super::Varied<Len> {
-    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
-        let mut byte = [0u8; 1];
-        for _ in 0..self.0.get() {
-            g.rng.fill(&mut byte);
-            obuf.write_bytes(&byte);
-        }
-    }
-}
+// impl<'i, Output: OutputBuf, Len: AsLen> Generator<Output, &'i [u8]> for super::Varied<Len> {
+//     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+//         let mut byte = [0u8; 1];
+//         for _ in 0..self.0.get() {
+//             g.rng.fill(&mut byte);
+//             obuf.write_bytes(&byte);
+//         }
+//     }
+// }
 
 impl<Len: AsLen> ByteLen<[u8]> for super::Varied<Len> {
     fn length(&self, v: &[u8]) -> (len: usize) {
@@ -244,11 +253,15 @@ impl<Output: OutputBuf, Len, Inner, T> Serializer<Output, T> for super::ExactLen
 
 impl<Output: OutputBuf, Len, Inner, T> Generator<Output, T> for super::ExactLen<Inner, Len> where
     Len: AsLen,
-    T: DeepView + ?Sized,
+    T: DeepView,
     Inner: Generator<Output, T> + SpecByteLen<T = T::V>,
  {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         self.1.generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        self.1.generate_val(g)
     }
 }
 
@@ -267,11 +280,15 @@ impl<Output: OutputBuf, Then, T> Serializer<Output, T> for super::AndThen<Tail, 
 }
 
 impl<Output: OutputBuf, Then, T> Generator<Output, T> for super::AndThen<Tail, Then> where
-    T: DeepView + ?Sized,
+    T: DeepView,
     Then: Generator<Output, T>,
  {
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         self.1.generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        self.1.generate_val(g)
     }
 }
 

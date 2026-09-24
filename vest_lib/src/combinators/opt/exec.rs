@@ -73,6 +73,15 @@ impl<Output: OutputBuf, A, T> Generator<Output, Option<T>> for super::Opt<A> whe
             {}
         }
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> Option<T> {
+        if g.rng.random_bool(0.5) {
+            Some(self.0.generate_val(g))
+        }
+        else {
+            None
+        }
+    }
 }
 
 impl<A, T> ByteLen<Option<T>> for super::Opt<A> where T: DeepView, A: ByteLen<T> {
@@ -138,7 +147,7 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (Option<TA>, TB)> for s
 impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (Option<TA>, TB)> for super::Optional<
     A,
     B,
-> where TA: DeepView, TB: DeepView, for<'a> super::Opt<&'a A> : Generator<Output, TA>, for<'a> &'a B : Generator<Output, TB> {
+> where TA: DeepView, TB: DeepView, A : Generator<Output, TA>, B : Generator<Output, TB> {
     #[verifier::prophetic]
     open spec fn exec_inv(&self) -> bool {
         &&& self.0.exec_inv()
@@ -147,6 +156,10 @@ impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (Option<TA>, TB)> for su
 
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         crate::combinators::Pair(super::Opt(&self.0), &self.1).generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> (Option<TA>, TB) {
+        crate::combinators::Pair(super::Opt(&self.0), &self.1).generate_val(g)
     }
 }
 

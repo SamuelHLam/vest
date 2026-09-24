@@ -98,7 +98,7 @@ impl<Output: OutputBuf, A, AVal, B, T, const CHECK: bool> Generator<Output, T> f
 > where
     AVal: DeepView<V = AVal>,
     T: DeepView,
-    A: Generator<Output, AVal> + Parser<Output, PT = AVal>,
+    A: Generator<Output, AVal>,
     B: Generator<Output, T>,
  {
     #[verifier::prophetic]
@@ -114,6 +114,15 @@ impl<Output: OutputBuf, A, AVal, B, T, const CHECK: bool> Generator<Output, T> f
         self.a.generate(g, obuf);
         // a_val can be arbitrary for malleability
         self.b.generate(g, obuf);
+
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
+
+        // self.a.generate_val(g);
+        // a_val can be arbitrary for malleability
+        self.b.generate_val(g)
 
     }
 }

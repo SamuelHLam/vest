@@ -56,6 +56,10 @@ impl<Output: OutputBuf, T, Inner> Generator<Output, T> for super::Named<Inner> w
     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
         self.1.generate(g, obuf);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> T {
+        self.1.generate_val(g)
+    }
 }
 
 impl<T, Inner> ByteLen<T> for super::Named<Inner> where T: DeepView, Inner: ByteLen<T> {

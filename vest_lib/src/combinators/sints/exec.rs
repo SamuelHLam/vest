@@ -153,6 +153,10 @@ impl<Output: OutputBuf> Generator<Output, i8> for super::I8 {
         let byte = g.rng.random();
         obuf.write_byte(byte);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i8 {
+        g.rng.random::<i8>()
+    }
 }
 
 impl ByteLen<i8> for super::I8 {
@@ -197,6 +201,10 @@ impl<Output: OutputBuf> Generator<Output, i16> for super::I16Le {
         let mut bytes = [0u8; 2];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i16 {
+        g.rng.random::<i16>()
     }
 }
 
@@ -243,6 +251,10 @@ impl<Output: OutputBuf> Generator<Output, i16> for super::I16Be {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i16 {
+        g.rng.random::<i16>()
+    }
 }
 
 impl ByteLen<i16> for super::I16Be {
@@ -288,6 +300,10 @@ impl<Output: OutputBuf> Generator<Output, i32> for super::I32Le {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i32 {
+        g.rng.random::<i32>()
+    }
 }
 
 impl ByteLen<i32> for super::I32Le {
@@ -332,6 +348,10 @@ impl<Output: OutputBuf> Generator<Output, i32> for super::I32Be {
         let mut bytes = [0u8; 4];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i32 {
+        g.rng.random::<i32>()
     }
 }
 
@@ -387,6 +407,10 @@ impl<Output: OutputBuf> Generator<Output, i64> for super::I64Le {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i64 {
+        g.rng.random::<i64>()
+    }
 }
 
 impl ByteLen<i64> for super::I64Le {
@@ -440,6 +464,10 @@ impl<Output: OutputBuf> Generator<Output, i64> for super::I64Be {
         let mut bytes = [0u8; 8];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> i64 {
+        g.rng.random::<i64>()
     }
 }
 

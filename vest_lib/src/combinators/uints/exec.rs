@@ -185,6 +185,10 @@ impl<Output: OutputBuf> Generator<Output, u8> for super::U8 {
         let byte = g.rng.random();
         obuf.write_byte(byte);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u8 {
+        g.rng.random::<u8>()
+    }
 }
 
 impl ByteLen<u8> for super::U8 {
@@ -231,6 +235,10 @@ impl<Output: OutputBuf> Generator<Output, u16> for super::U16Le {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u16 {
+        g.rng.random::<u16>()
+    }
 }
 
 impl ByteLen<u16> for super::U16Le {
@@ -276,6 +284,10 @@ impl<Output: OutputBuf> Generator<Output, u16> for super::U16Be {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u16 {
+        g.rng.random::<u16>()
+    }
 }
 
 impl ByteLen<u16> for super::U16Be {
@@ -320,6 +332,12 @@ impl<Output: OutputBuf> Generator<Output, u32> for super::U24Le {
         let mut bytes = [0u8; 3];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u32 {
+        let mut bytes = [0u8; 3];
+        g.rng.fill(&mut bytes);
+        u24_from_le_bytes(bytes)
     }
 }
 
@@ -370,6 +388,12 @@ impl<Output: OutputBuf> Generator<Output, u32> for super::U24Be {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u32 {
+        let mut bytes = [0u8; 3];
+        g.rng.fill(&mut bytes);
+        u24_from_be_bytes(bytes)
+    }
 }
 
 impl ByteLen<u32> for super::U24Be {
@@ -419,6 +443,10 @@ impl<Output: OutputBuf> Generator<Output, u32> for super::U32Le {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u32 {
+        g.rng.random::<u32>()
+    }
 }
 
 impl ByteLen<u32> for super::U32Le {
@@ -463,6 +491,10 @@ impl<Output: OutputBuf> Generator<Output, u32> for super::U32Be {
         let mut bytes = [0u8; 4];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u32 {
+        g.rng.random::<u32>()
     }
 }
 
@@ -518,6 +550,10 @@ impl<Output: OutputBuf> Generator<Output, u64> for super::U64Le {
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u64 {
+        g.rng.random::<u64>()
+    }
 }
 
 impl ByteLen<u64> for super::U64Le {
@@ -571,6 +607,10 @@ impl<Output: OutputBuf> Generator<Output, u64> for super::U64Be {
         let mut bytes = [0u8; 8];
         g.rng.fill(&mut bytes);
         obuf.write_bytes(&bytes);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> u64 {
+        g.rng.random::<u64>()
     }
 }
 

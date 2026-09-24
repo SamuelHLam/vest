@@ -89,6 +89,12 @@ impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (TA, TB)> for super::Pai
         self.0.generate(g, obuf);
         self.1.generate(g, obuf);
     }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> (TA, TB) {
+        let va = self.0.generate_val(g);
+        let vb = self.1.generate_val(g);
+        (va, vb)
+    }
 }
 
 impl<A, B, TA, TB> Prepare<(TA, TB)> for super::Pair<A, B> where
@@ -186,27 +192,37 @@ impl<Output: OutputBuf, A, B, TA, TB> Serializer<Output, (TA, TB)> for super::Bi
     }
 }
 
-// impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (TA, TB)> for super::Bind<A, B> where
-//     TA: DeepView,
-//     TB: DeepView,
-//     A: Generator<Output, TA>,
-//     B::O: Generator<Output, TB>,
-//     B: MapRef<TA, Input = TA::V>,
-//  {
-//     #[verifier::prophetic]
-//     open spec fn exec_inv(&self) -> bool {
-//         &&& self.0.exec_inv()
-//         &&& forall|pb: B::O| #[trigger] pb.exec_inv()
-//     }
+impl<Output: OutputBuf, A, B, TA, TB> Generator<Output, (TA, TB)> for super::Bind<A, B> where
+    TA: DeepView,
+    TB: DeepView,
+    A: Generator<Output, TA> + Serializer<Output, TA>,
+    B::O: Generator<Output, TB>,
+    B: MapRef<TA, Input = TA::V>,
+ {
+    #[verifier::prophetic]
+    open spec fn exec_inv(&self) -> bool {
+        &&& self.0.exec_inv()
+        &&& forall|pb: B::O| #[trigger] pb.exec_inv()
+    }
 
-//     fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
-//         broadcast use crate::core::exec::output::outbuf_lemmas;
+    fn generate(&mut self, g: &mut StdGen, obuf: &mut Output) {
+        broadcast use crate::core::exec::output::outbuf_lemmas;
 
-//         let next = self.1.map(&v.0);
-//         self.0.generate(g, obuf);
-//         next.generate(g, obuf);
-//     }
-// }
+        // let next = self.1.map(&v.0);
+        // self.0.generate(g, obuf);
+        let key = self.0.generate_val(g);
+        let mut next = self.1.map(&key);
+        self.0.serialize_into(&key, obuf);
+        next.generate(g, obuf);
+    }
+
+    fn generate_val(&mut self, g: &mut StdGen) -> (TA, TB) {
+        let key = self.0.generate_val(g);
+        let mut next = self.1.map(&key);
+        let val = next.generate_val(g);
+        (key, val)
+    }
+}
 
 impl<A, B, STA, STB> ByteLen<(STA, STB)> for super::Bind<A, B> where
     STA: DeepView,
